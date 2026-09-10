@@ -1,10 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import confetti from 'canvas-confetti';
 import { demoDashboard, EXERCISES, todayId } from '../data';
-import { flushQueue, queue, readQueue, request } from '../lib/api';
+import { flushQueue, queue, readQueue, request, clearToken, getToken, setToken } from '../lib/api';
 
 const GymContext = createContext(null);
-const cacheKey = (date) => `vishify-dashboard-${date}`;
+const cacheKey = (date, userId) => `vishify-dashboard-${userId || 'anon'}-${date}`;
+const userStoreKey = (userId) => `vishify-user-${userId || 'anon'}`;
 
 const NUTRITION = {
   egg: { protein: 6, calories: 72 },
@@ -12,15 +13,28 @@ const NUTRITION = {
 };
 
 export function GymProvider({ children }) {
-  const [dashboard, setDashboard] = useState(() => JSON.parse(localStorage.getItem(cacheKey(todayId())) || 'null') || demoDashboard());
-  const [exercises, setExercises] = useState(() => JSON.parse(localStorage.getItem('vishify-exercises') || 'null') || EXERCISES);
+  const [user, setUser] = useState(() => {
+    const cached = localStorage.getItem('vishify-user');
+    return cached ? JSON.parse(cached) : null;
+  });
+  const [authenticating, setAuthenticating] = useState(true);
+  const [authError, setAuthError] = useState(null);
+  const [dashboard, setDashboard] = useState(() => {
+    const cachedUser = localStorage.getItem('vishify-user');
+    const userId = cachedUser ? JSON.parse(cachedUser)?._id : null;
+    return JSON.parse(localStorage.getItem(cacheKey(todayId(), userId)) || 'null') || demoDashboard();
+  });
+  const [exercises, setExercises] = useState(() => {
+    const cachedUser = localStorage.getItem('vishify-user');
+    const userId = cachedUser ? JSON.parse(cachedUser)?._id : null;
+    return JSON.parse(localStorage.getItem(`vishify-exercises-${userId || 'anon'}`) || 'null') || EXERCISES;
+  });
   const [offline, setOffline] = useState(!navigator.onLine);
   const [syncing, setSyncing] = useState(false);
-  const [booted, setBooted] = useState(false);
 
   const persistDashboard = (next) => {
     setDashboard(next);
-    try { localStorage.setItem(cacheKey(next.today.date), JSON.stringify(next)); } catch { /* storage full */ }
+    try { localStorage.setItem(cacheKey(next.today.date, user?._id), JSON.stringify(next)); } catch { /* storage full */ }
   };
 
   const refresh = useCallback(async () => {
@@ -38,9 +52,45 @@ export function GymProvider({ children }) {
     }
   }, []);
 
+  // Restore session if a token exists
   useEffect(() => {
+    let active = true;
+    (async () => {
+      if (!getToken()) {
+        setAuthenticating(false);
+        return;
+      }
+      try {
+        const me = await request('/auth/me');
+        if (active) {
+          setUser(me);
+          localStorage.setItem('vishify-user', JSON.stringify(me));
+        }
+      } catch {
+        // invalid token — treated as logged out
+      } finally {
+        if (active) setAuthenticating(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    const onUnauthorized = () => {
+      setUser(null);
+      clearToken();
+      localStorage.removeItem('vishify-user');
+      localStorage.removeItem('vishify-exercises');
+    };
+    window.addEventListener('vishify-auth:unauthorized', onUnauthorized);
+    return () => window.removeEventListener('vishify-auth:unauthorized', onUnauthorized);
+  }, []);
+
+  // Load data only when logged in
+  useEffect(() => {
+    if (!getToken()) return;
     let mounted = true;
-    refresh().finally(() => mounted && setBooted(true));
+    refresh().finally(() => mounted && undefined);
     const online = async () => {
       setSyncing(true);
       await flushQueue();
@@ -54,7 +104,49 @@ export function GymProvider({ children }) {
       window.removeEventListener('online', online);
       window.removeEventListener('offline', () => setOffline(true));
     };
+  }, [refresh, user]);
+
+  const login = useCallback(async ({ email, password }) => {
+    setAuthError(null);
+    try {
+      const data = await request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+      setToken(data.token);
+      localStorage.setItem('vishify-user', JSON.stringify(data.user));
+      setUser(data.user);
+      await refresh();
+      return data.user;
+    } catch (error) {
+      setAuthError(error.message);
+      throw error;
+    }
   }, [refresh]);
+
+  const register = useCallback(async ({ name, email, password }) => {
+    setAuthError(null);
+    try {
+      const data = await request('/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password }) });
+      setToken(data.token);
+      localStorage.setItem('vishify-user', JSON.stringify(data.user));
+      setUser(data.user);
+      if (data.seeded) {
+        await refresh();
+        confetti({ particleCount: 180, spread: 100, origin: { y: 0.5 }, colors: ['#7CFF6B', '#71e6f4', '#f5c85a', '#ffffff'] });
+      }
+      return data.user;
+    } catch (error) {
+      setAuthError(error.message);
+      throw error;
+    }
+  }, [refresh]);
+
+  const logout = useCallback(() => {
+    setUser(null);
+    clearToken();
+    localStorage.removeItem('vishify-user');
+    localStorage.removeItem('vishify-exercises');
+    setDashboard(demoDashboard());
+    setExercises(EXERCISES);
+  }, []);
 
   const replaceToday = (nextToday) => {
     const optimistic = { ...dashboard, today: nextToday };
@@ -80,12 +172,13 @@ export function GymProvider({ children }) {
   };
 
   const quickAdd = async (item) => {
-    const map = { egg: 'eggs', dahi: 'dahiBowls', water: 'waterGlasses' };
+    const map = { egg: 'eggs', dahi: 'dahiBowls', water: 'waterGlasses', bottle: 'waterGlasses' };
+    const step = item === 'bottle' ? 4 : 1;
     const property = map[item];
     const before = dashboard.today;
-    const nextCount = before[property] + 1;
+    const nextCount = before[property] + step;
     const resultingProtein = (before.eggs + (item === 'egg' ? 1 : 0)) * NUTRITION.egg.protein + (before.dahiBowls + (item === 'dahi' ? 1 : 0)) * NUTRITION.dahiBowl.protein;
-    if (item === 'water' && nextCount === 10) {
+    if ((item === 'water' || item === 'bottle') && nextCount >= 10) {
       confetti({ particleCount: 80, spread: 60, origin: { y: 0.2 }, colors: ['#71e6f4', '#ffffff'] });
     }
     await updateToday({ [property]: nextCount });
@@ -121,8 +214,8 @@ export function GymProvider({ children }) {
   };
 
   const value = useMemo(
-    () => ({ dashboard, exercises, offline, syncing, booted, pending: readQueue().length, quickAdd, updateToday, editExercise, refresh }),
-    [dashboard, exercises, offline, syncing, booted]
+    () => ({ user, login, register, logout, authenticating, authError, dashboard, exercises, offline, syncing, pending: readQueue().length, quickAdd, updateToday, editExercise, refresh }),
+    [user, login, register, logout, authenticating, authError, dashboard, exercises, offline, syncing]
   );
   return <GymContext.Provider value={value}>{children}</GymContext.Provider>;
 }

@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { ArrowDownToLine, CirclePlus, Dumbbell, Flame, Target, X, Activity } from 'lucide-react';
+import { ArrowDownToLine, CirclePlus, Dumbbell, Flame, LogOut, Target, X, Activity } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useGym } from '../state/GymContext';
 import { Card } from '../components/Card';
+import { API_BASE, getToken } from '../lib/api';
 
 export function Settings() {
-  const { exercises, editExercise } = useGym();
+  const { exercises, editExercise, user, logout } = useGym();
   const [name, setName] = useState('');
   const [category, setCategory] = useState('push');
   const [filter, setFilter] = useState('all');
@@ -28,7 +29,8 @@ export function Settings() {
 
   const download = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:4000/api'}/export/csv`);
+      const response = await fetch(`${API_BASE}/export/csv`, { headers: { Authorization: `Bearer ${getToken()}` } });
+      if (!response.ok) throw new Error('Export failed');
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -38,7 +40,7 @@ export function Settings() {
       URL.revokeObjectURL(url);
       confetti({ particleCount: 90, spread: 60, origin: { y: 0.2 }, colors: ['#71e6f4', '#7CFF6B'] });
     } catch {
-      window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:4000/api'}/export/csv`;
+      confetti({ particleCount: 30, spread: 40, origin: { y: 0.2 }, colors: ['#ff6b6b'] });
     }
   };
 
@@ -49,8 +51,16 @@ export function Settings() {
           <p className="eyebrow">MAKE IT YOURS</p>
           <h1>Routine settings<span>.</span></h1>
         </div>
-        <button className="outline-mini" onClick={download}><ArrowDownToLine size={15} /> Export CSV</button>
+        <div className="settings-actions">
+          <button className="outline-mini" onClick={download}><ArrowDownToLine size={15} /> Export CSV</button>
+        </div>
       </header>
+
+      <div className="account-card">
+        <span className={`category-icon ${'cardio'}`}>{user?.name?.charAt(0)?.toUpperCase() || 'G'}</span>
+        <div><b>{user?.name}</b><small>{user?.email}</small></div>
+        <button className="logout-btn" onClick={logout}><LogOut size={15} /> Log out</button>
+      </div>
 
       {justRemoved && <div className="toast-inline"><span /> {justRemoved} removed from your routine.</div>}
 

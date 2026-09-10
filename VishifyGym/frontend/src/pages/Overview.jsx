@@ -11,9 +11,9 @@ import { SessionLauncher } from '../components/SessionLauncher';
 
 export function Overview() {
   const { dashboard, offline, syncing, pending } = useGym();
-  const { today, weekly, workouts, forecast } = dashboard;
+  const { today, weekly, workouts, forecast, streaks } = dashboard;
   const isSunday = new Date(`${today.date}T12:00:00`).getDay() === 0;
-  const proteinStreak = weekly.filter((d) => d.protein >= today.proteinTarget).length;
+  const proteinStreak = streaks?.protein ?? weekly.filter((d) => d.protein >= today.proteinTarget).length;
 
   return (
     <main className="page-content home-view">

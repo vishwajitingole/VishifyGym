@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
-import { BarChart3, Dumbbell, Flame, Home, MoreHorizontal, Settings2 } from 'lucide-react';
+import { BarChart3, Dumbbell, Home, LogOut, Settings2 } from 'lucide-react';
 import { useGym } from './state/GymContext';
 import { Overview } from './pages/Overview';
 import { Progress } from './pages/Progress';
 import { Training } from './pages/Training';
 import { Settings } from './pages/Settings';
+import { AuthScreen } from './pages/AuthScreen';
 
 const nav = [
   { id: 'home', icon: Home, label: 'Today' },
@@ -14,10 +15,20 @@ const nav = [
 ];
 
 export function App() {
+  const { user, authenticating, logout } = useGym();
   const [view, setView] = useState('home');
-  const { dashboard } = useGym();
   const Screen = useMemo(() => ({ home: Overview, progress: Progress, workout: Training, settings: Settings }[view]), [view]);
-  const proteinStreak = dashboard?.weekly?.filter((d) => d.protein >= 130).length || 0;
+
+  if (authenticating) {
+    return (
+      <div className="auth-loading">
+        <Dumbbell size={26} />
+        <span className="ring-loader" />
+      </div>
+    );
+  }
+
+  if (!user) return <AuthScreen />;
 
   return (
     <div className="app-shell">
@@ -31,16 +42,18 @@ export function App() {
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <div className="streak"><Flame size={18} /><div><b>{String(proteinStreak).padStart(2, '0')} day</b><small>protein streak</small></div></div>
-          <button className="profile">
-            <span>VG</span>
-            <div><b>Vishwajit</b><small>Level 12</small></div>
-            <MoreHorizontal size={18} />
+          <button className="profile" onClick={logout} title="Log out">
+            <span>{user?.name?.charAt(0)?.toUpperCase() || 'G'}</span>
+            <div><b>{user?.name || 'Guest'}</b><small>{user?.email || 'signed in'}</small></div>
+            <LogOut size={16} className="logout-icon" />
           </button>
         </div>
       </aside>
 
-      <div className="mobile-brand"><Dumbbell size={18} /><b>VISHIFY<em>GYM</em></b></div>
+      <div className="mobile-brand">
+        <Dumbbell size={18} /><b>VISHIFY<em>GYM</em></b>
+        <button className="mobile-logout" onClick={logout} aria-label="Log out"><LogOut size={16} /></button>
+      </div>
       <Screen />
 
       <nav className="mobile-nav">

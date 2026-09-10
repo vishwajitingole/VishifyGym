@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import DailyLog from '../models/DailyLog.js';
+import User from '../models/User.js';
 import WorkoutSession from '../models/WorkoutSession.js';
 import { nutritionFor, volumeFor } from '../utils/metrics.js';
 
@@ -10,13 +11,17 @@ const addDays = (date, amount) => { const d = new Date(`${date}T12:00:00`); d.se
 
 router.get('/', async (req, res, next) => {
   try {
+    const userId = req.userId;
     const days = Math.min(Math.max(Number(req.query.days) || 7, 1), 90);
     const date = req.query.date || isoDay(new Date());
     const rangeStart = isoDay(addDays(date, -(days - 1)));
-    const [logs, sessions] = await Promise.all([
-      DailyLog.find({ date: { $gte: rangeStart, $lte: date } }).sort({ date: 1 }),
-      WorkoutSession.find({ date: { $gte: rangeStart, $lte: date } })
+    const [user, logs, sessions] = await Promise.all([
+      User.findById(userId),
+      DailyLog.find({ userId, date: { $gte: rangeStart, $lte: date } }).sort({ date: 1 }),
+      WorkoutSession.find({ userId, date: { $gte: rangeStart, $lte: date } })
     ]);
+    const proteinTarget = user?.proteinTarget || 130;
+    const cardioTarget = user?.cardioTargetMinutes || 20;
     const logByDate = Object.fromEntries(logs.map((log) => [log.date, log]));
     const sessionsByDate = {}; sessions.forEach((session) => (sessionsByDate[session.date] = [...(sessionsByDate[session.date] || []), session]));
     const daily = Array.from({ length: days }, (_, i) => {
@@ -35,8 +40,8 @@ router.get('/', async (req, res, next) => {
       };
     });
     const lastSeven = daily.slice(-7);
-    const proteinHits = lastSeven.filter((d) => d.protein >= 130).length;
-    const cardioHits = lastSeven.filter((d) => d.cardioMinutes >= 20).length;
+    const proteinHits = lastSeven.filter((d) => d.protein >= proteinTarget).length;
+    const cardioHits = lastSeven.filter((d) => d.cardioMinutes >= cardioTarget).length;
     const exerciseMax = {};
     sessions.forEach((session) => session.exerciseLogs.forEach((entry) => {
       const max = Math.max(0, ...entry.sets.map((set) => set.weight || 0));

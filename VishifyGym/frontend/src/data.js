@@ -9,5 +9,5 @@ export const dateLabel = (date) => new Date(`${date}T12:00:00`).toLocaleDateStri
 export function demoDashboard() {
   const today = todayId();
   const weekly = Array.from({ length: 7 }, (_, index) => { const d = new Date(`${today}T12:00:00`); d.setDate(d.getDate() - 6 + index); return { date: d.toLocaleDateString('en-CA'), label: d.toLocaleDateString('en', { weekday: 'short' }), eggs: [3, 4, 5, 2, 5, 4, 2][index], dahiBowls: [1, 1, 2, 1, 1, 2, 1][index], waterGlasses: [5, 6, 8, 4, 7, 8, 3][index], protein: [29, 35, 52, 23, 41, 46, 23][index], workedOut: [true, true, false, true, true, true, false][index] }; });
-  return { today: { date: today, eggs: 2, dahiBowls: 1, waterGlasses: 3, bodyweight: 74.2, proteinTarget: 130, calorieTarget: 2400, cardioTargetMinutes: 20, nutrition: { protein: 23, calories: 324 } }, weekly, workouts: [], forecast: { eggs: 25, dahiBowls: 9 } };
+  return { today: { date: today, eggs: 2, dahiBowls: 1, waterGlasses: 3, bodyweight: 74.2, proteinTarget: 130, calorieTarget: 2400, cardioTargetMinutes: 20, nutrition: { protein: 23, calories: 324 } }, weekly, workouts: [], forecast: { eggs: 25, dahiBowls: 9 }, streaks: { protein: 0, cardio: 0 }, user: null };
 }
