@@ -141,6 +141,29 @@ button:disabled { opacity: .6; cursor: progress; }
 .icon-button:hover { background: #ffffff16; color: white; transform: rotate(90deg); }
 .icon-button.aqua { color: #71e6f4; }
 
+/* ============ BODYWEIGHT ============ */
+.bw-status { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; font: 700 9px Manrope; text-transform: uppercase; letter-spacing: .6px; color: #7CFF6B; background: #7CFF6B12; border: 1px solid #7CFF6B24; padding: 5px 8px; border-radius: 20px; white-space: nowrap; }
+.bw-main { display: flex; align-items: center; gap: 12px; margin-top: 13px; }
+.bw-scale { color: #f5c85a; background: #f5c85a16; border: 1px solid #f5c85a25; width: 49px; height: 49px; border-radius: 15px; display: grid; place-items: center; }
+.bw-value strong { display: block; font: 700 28px 'DM Mono'; letter-spacing: -1.5px; color: #f5c85a; }
+.bw-value strong small { color: #87939d; font: 10px Manrope; letter-spacing: 0; margin-left: 3px; }
+.bw-delta { display: inline-flex; align-items: center; gap: 5px; font-size: 9px; color: #85919a; margin-top: 3px; }
+.bw-delta.up { color: #ff9a94; }
+.bw-delta.down { color: #7CFF6B; }
+.trend-arrow { display: inline-grid; place-items: center; }
+.bw-form { display: flex; gap: 8px; margin-top: 13px; }
+.bw-form input { flex: 1; min-width: 0; background: #ffffff07; border: 1px solid #ffffff12; color: #e8f0f2; border-radius: 10px; padding: 9px 11px; font: 700 13px 'DM Mono'; outline: none; }
+.bw-form input:focus { border-color: #f5c85a55; }
+.bw-form input::placeholder { color: #5d6a73; }
+.bw-form button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #f5c85a33; background: #f5c85a12; color: #ffd77a; border-radius: 10px; padding: 9px 13px; font-size: 10px; font-weight: 800; white-space: nowrap; transition: transform .18s, background .18s; }
+.bw-form button:hover { background: #f5c85a1f; transform: translateY(-1px); }
+.bw-bars { height: 58px; display: flex; align-items: end; gap: 7px; margin-top: 17px; }
+.bw-day { flex: 1; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: end; gap: 3px; }
+.bw-day i { width: 100%; max-width: 21px; min-height: 5px; background: linear-gradient(#f5c85a, #b98a1e); border-radius: 6px 6px 3px 3px; opacity: .75; transition: height .5s ease; }
+.bw-day:hover i { opacity: 1; filter: drop-shadow(0 0 6px #f5c85a70); }
+.bw-day span { font: 700 8px 'DM Mono'; color: #a8b3ba; }
+.bw-day small { font-size: 8px; color: #6b7881; text-transform: uppercase; }
+
 /* ============ WATER ============ */
 .water-main { display: flex; align-items: center; gap: 10px; }
 .water-bubble { color: #71e6f4; background: #71e6f419; border: 1px solid #71e6f426; width: 49px; height: 49px; border-radius: 15px 15px 18px 18px; display: grid; place-items: center; animation: bob 3s ease-in-out infinite; }

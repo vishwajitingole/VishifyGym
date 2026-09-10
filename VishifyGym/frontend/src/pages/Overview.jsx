@@ -3,6 +3,7 @@ import { useGym } from '../state/GymContext';
 import { dateLabel } from '../data';
 import { RingGauge } from '../components/RingGauge';
 import { NutritionActions } from '../components/NutritionActions';
+import { BodyweightCard } from '../components/BodyweightCard';
 import { WaterCard } from '../components/WaterCard';
 import { ConsistencyCalendar } from '../components/ConsistencyCalendar';
 import { RecoveryMap } from '../components/RecoveryMap';
@@ -45,6 +46,8 @@ export function Overview() {
       </section>
 
       <NutritionActions />
+
+      <BodyweightCard />
 
       <section className="gauge-grid">
         <RingGauge value={today.nutrition.protein} target={today.proteinTarget} label="Protein" unit="g" icon={Target} />
