@@ -5,7 +5,6 @@ import { flushQueue, queue, readQueue, request, clearToken, getToken, setToken }
 
 const GymContext = createContext(null);
 const cacheKey = (date, userId) => `vishify-dashboard-${userId || 'anon'}-${date}`;
-const userStoreKey = (userId) => `vishify-user-${userId || 'anon'}`;
 
 const NUTRITION = {
   egg: { protein: 6, calories: 72 },
@@ -45,7 +44,7 @@ export function GymProvider({ children }) {
       ]);
       persistDashboard(freshDashboard);
       setExercises(freshExercises);
-      localStorage.setItem('vishify-exercises', JSON.stringify(freshExercises));
+      localStorage.setItem(`vishify-exercises-${user?._id || 'anon'}`, JSON.stringify(freshExercises));
       setOffline(false);
     } catch {
       setOffline(true);
@@ -76,11 +75,16 @@ export function GymProvider({ children }) {
   }, []);
 
   useEffect(() => {
+    const clearUserScopedKeys = () => {
+      Object.keys(localStorage).forEach((key) => {
+        if (key.startsWith('vishify-dashboard-') || key.startsWith('vishify-exercises-')) localStorage.removeItem(key);
+      });
+    };
     const onUnauthorized = () => {
       setUser(null);
       clearToken();
       localStorage.removeItem('vishify-user');
-      localStorage.removeItem('vishify-exercises');
+      clearUserScopedKeys();
     };
     window.addEventListener('vishify-auth:unauthorized', onUnauthorized);
     return () => window.removeEventListener('vishify-auth:unauthorized', onUnauthorized);
@@ -143,7 +147,9 @@ export function GymProvider({ children }) {
     setUser(null);
     clearToken();
     localStorage.removeItem('vishify-user');
-    localStorage.removeItem('vishify-exercises');
+    Object.keys(localStorage).forEach((key) => {
+      if (key.startsWith('vishify-dashboard-') || key.startsWith('vishify-exercises-') || key.startsWith('vishify-offline-')) localStorage.removeItem(key);
+    });
     setDashboard(demoDashboard());
     setExercises(EXERCISES);
   }, []);
