@@ -54,7 +54,15 @@ router.get('/', async (req, res, next) => {
       const reps = pushupEntry.sets.reduce((total, set) => total + (set.completed === false ? 0 : set.reps || 0), 0);
       return { date: session.date, reps };
     }).filter((m) => m.reps > 0);
-    res.json({ days, daily, exerciseMax, topSessions, pushupMilestones, streaks: { protein: proteinHits, cardio: cardioHits } });
+    const cardioSessions = sessions.filter((s) => s.type === 'cardio');
+    const cardio = {
+      sessions: cardioSessions.map((s) => ({ date: s.date, durationMinutes: s.durationMinutes || 0, speed: s.speed || 0 })),
+      totalMinutes: cardioSessions.reduce((t, s) => t + (s.durationMinutes || 0), 0),
+      avgMinutes: daily.length ? cardioSessions.reduce((t, s) => t + (s.durationMinutes || 0), 0) / daily.length : 0,
+      best: cardioSessions.length ? Math.max(...cardioSessions.map((s) => s.durationMinutes || 0)) : 0,
+      target: cardioTarget
+    };
+    res.json({ days, daily, exerciseMax, topSessions, pushupMilestones, streaks: { protein: proteinHits, cardio: cardioHits }, cardio });
   } catch (error) { next(error); }
 });
 

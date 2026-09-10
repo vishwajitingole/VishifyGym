@@ -4,6 +4,7 @@ import { request } from '../lib/api';
 import { TimeRange } from '../components/TimeRange';
 import { ProgressCharts } from '../components/ProgressCharts';
 import { PRBanner } from '../components/PRBanner';
+import { CardioMonitor } from '../components/CardioMonitor';
 
 const fallbackSeries = (days) => {
   const today = new Date().toLocaleDateString('en-CA');
@@ -73,6 +74,7 @@ export function Progress() {
       ) : (
         <>
           <ProgressCharts daily={daily} exerciseMax={progress.exerciseMax || {}} />
+          <CardioMonitor daily={daily} cardio={progress.cardio} />
           {progress.pushupMilestones?.length > 0 && (
             <div className="pushup-panel">
               <p className="eyebrow">SUNDAY PUSHUPS</p>

@@ -261,6 +261,36 @@ button:disabled { opacity: .6; cursor: progress; }
 .set-row input, .dips-dock input { border: 1px solid #ffffff10; background: #080c12; color: #f2f7f5; border-radius: 7px; padding: 5px 8px; width: 100%; font: 11px 'DM Mono'; outline: 0; transition: border-color .2s, box-shadow .2s; }
 .set-row input:focus, .dips-dock input:focus { border-color: #7CFF6B7d; box-shadow: 0 0 0 3px #7CFF6B14; }
 .set-row input:focus { background: #0d131c; }
+.stepper { display: flex; align-items: center; gap: 3px; min-width: 0; }
+.stepper input { text-align: center; padding: 6px 2px; }
+.stepper button { flex: none; width: 26px; height: 28px; border-radius: 9px; border: 1px solid #7CFF6B22; background: #7CFF6B0c; color: #9fe9d8; display: grid; place-items: center; transition: .15s; cursor: pointer; }
+.stepper button:hover { background: #7CFF6B1c; border-color: #7CFF6B44; color: #aaff9c; transform: translateY(-1px); }
+.stepper button:active { transform: scale(.9); }
+.stepper.disabled button { opacity: .3; cursor: not-allowed; background: #ffffff04; border-color: #ffffff0d; }
+.stepper.disabled button:hover { transform: none; color: #9fe9d8; background: #ffffff04; }
+.stepper.disabled input { color: #43515b; }
+.plan-note { display: flex; align-items: center; gap: 8px; margin: 0 21px 8px; padding: 10px 13px; background: #a992ff10; border: 1px solid #a992ff24; border-radius: 10px; color: #c9bfff; font-size: 10px; }
+.plan-note b { color: #fff; }
+.suggestion-chip { display: flex; align-items: center; gap: 9px; width: 100%; border: 1px solid #f5c85a30; background: linear-gradient(110deg, #f5c85a12, #f5c85a04); border-radius: 11px; padding: 9px 11px; margin-bottom: 9px; text-align: left; transition: transform .18s, border-color .18s, background .18s; }
+.suggestion-chip:hover { border-color: #f5c85a60; background: #f5c85a18; transform: translateY(-1px); }
+.suggestion-chip svg { color: #f5c85a; flex: none; }
+.suggestion-chip span { flex: 1; min-width: 0; }
+.suggestion-chip b { display: block; font-size: 12px; color: #ffd77a; }
+.suggestion-chip small { display: block; color: #9a8370; font-size: 8.5px; margin-top: 1px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.suggestion-chip em { font-style: normal; font-size: 9px; font-weight: 800; color: #ffd77a; border: 1px solid #f5c85a40; border-radius: 7px; padding: 4px 8px; }
+.celebration { position: fixed; inset: 0; z-index: 1200; display: grid; place-items: center; background: radial-gradient(circle at 50% 32%, #00000070, transparent 62%); animation: fade-in .3s; }
+.celebration-card { position: relative; text-align: center; padding: 42px 44px; border-radius: 26px; background: linear-gradient(160deg, #151d29, #0e1520); border: 1px solid #ffffff1a; box-shadow: 0 30px 90px #000c; animation: celebration-pop .5s cubic-bezier(.2, 1.6, .4, 1); max-width: 340px; }
+.celebration-card h3 { font-size: 20px; margin: 16px 0 6px; color: #f5c85a; }
+.celebration-card p { color: #8b97a1; font-size: 12px; line-height: 1.55; margin: 0; }
+.celebration-trophy { width: 74px; height: 74px; margin: 0 auto; border-radius: 24px; background: linear-gradient(135deg, #f5c85a, #c8901a); color: #1a1406; display: grid; place-items: center; box-shadow: 0 12px 34px #f5c85a40; animation: trophy-glow 1.2s ease infinite; position: relative; z-index: 1; }
+.celebration-ring { position: absolute; top: 50%; left: 50%; width: 190px; height: 190px; transform: translate(-50%, -50%); background: radial-gradient(circle, #f5c85a20, transparent 65%); animation: ring-pulse 1.4s ease-out infinite; }
+.cardio-field .mini-stepper { display: flex; align-items: center; gap: 4px; }
+.mini-stepper button { width: 26px; height: 28px; border-radius: 8px; border: 1px solid #71e6f426; background: #71e6f40d; color: #71e6f4; display: grid; place-items: center; transition: .15s; cursor: pointer; }
+.mini-stepper button:hover { background: #71e6f41e; transform: translateY(-1px); }
+.mini-stepper input { text-align: center; }
+@keyframes celebration-pop { 0% { transform: scale(.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes trophy-glow { 0%, 100% { filter: drop-shadow(0 0 12px #f5c85a60); transform: scale(1); } 50% { filter: drop-shadow(0 0 26px #f5c85aaa); transform: scale(1.06); } }
+@keyframes ring-pulse { 0% { opacity: 1; transform: translate(-50%, -50%) scale(.7); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.5); } }
 .superset-note { padding: 9px 21px; color: #c5b9ff; background: #a992ff11; font-size: 10px; display: flex; align-items: center; gap: 6px; }
 .dips-dock { display: flex; align-items: center; gap: 10px; margin: 0 21px 16px; padding: 12px; background: linear-gradient(110deg, #49282b, #23191d); border: 1px solid #ff6b6b2b; border-radius: 12px; }
 .dips-dock > div { display: flex; align-items: center; gap: 9px; flex: 1; color: #ff9a94; }
@@ -339,6 +369,12 @@ button:disabled { opacity: .6; cursor: progress; }
 .pr-selector small { color: #82909a; font-size: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
 .pr-selector b { color: #f7cb66; font: 700 13px 'DM Mono'; margin-top: 2px; }
 .pushup-panel { border: 1px solid #7CFF6B1e; border-radius: 16px; background: linear-gradient(145deg, #101c15, #0f1319); padding: 17px; margin-bottom: 17px; }
+.session-chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.chip { display: flex; align-items: center; gap: 9px; background: #ffffff05; border: 1px solid #ffffff0c; border-radius: 10px; padding: 9px 11px; min-width: 0; }
+.chip-dot { width: 8px; height: 8px; border-radius: 50%; background: #71e6f4; box-shadow: 0 0 8px #71e6f4a0; flex: none; }
+.chip b, .chip small { display: block; }
+.chip b { font-size: 11px; color: #d8eef4; }
+.chip small { color: #7f8d96; font-size: 9px; margin-top: 1px; }
 .pushup-mini-list { display: grid; gap: 7px; margin-top: 10px; }
 .pushup-mini-list div { display: flex; justify-content: space-between; background: #ffffff05; border: 1px solid #ffffff0c; border-radius: 9px; padding: 9px 12px; }
 .pushup-mini-list span { color: #7e8b94; font-size: 11px; }
@@ -510,6 +546,7 @@ button:disabled { opacity: .6; cursor: progress; }
   .progress-stat b { font-size: 14px; }
   .workout-sheet { width: 100%; }
   .exercise-entry.superset { width: 100%; margin-right: 0; }
+  .session-chips { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 390px) {
