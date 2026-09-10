@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, Dumbbell, Minus, Plus, Wand2, X, Zap } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Dumbbell, History, Minus, Plus, SkipForward, X, Zap } from 'lucide-react';
 import { useGym } from '../state/GymContext';
 import { queue, request } from '../lib/api';
 import { Celebration } from './Celebration';
@@ -11,9 +11,26 @@ const formatWeight = (value) => (Math.round((Number(value) || 0) * 100) / 100).t
 
 const blankSets = () => [
   { reps: '', weight: '' },
-  { reps: '', weight: '' },
   { reps: '' }
 ];
+
+const typeTitle = { push: 'Push session', pull: 'Pull session', pushups: 'Pushup milestone' };
+const draftKey = (type, date) => `vishify-session-${type}-${date}`;
+
+const loadDraft = (type, date) => {
+  try {
+    const raw = localStorage.getItem(draftKey(type, date));
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+};
+
+const saveDraft = (type, date, data) => {
+  try { localStorage.setItem(draftKey(type, date), JSON.stringify(data)); } catch { /* storage full */ }
+};
+
+const clearDraft = (type, date) => {
+  try { localStorage.removeItem(draftKey(type, date)); } catch { /* ignore */ }
+};
 
 function Stepper({ value, onChange, step, min = 0, max = 250, disabled }) {
   const val = Number(value) || 0;
@@ -29,51 +46,95 @@ function Stepper({ value, onChange, step, min = 0, max = 250, disabled }) {
 
 export function WorkoutSheet({ type, close }) {
   const { exercises, dashboard, refresh } = useGym();
+  const today = dashboard.today.date;
+  const [index, setIndex] = useState(() => loadDraft(type, today)?.index || 0);
   const [saving, setSaving] = useState(false);
-  const [dips, setDips] = useState('');
   const [suggestion, setSuggestion] = useState({});
+  const [lastSession, setLastSession] = useState(null);
   const [celebration, setCelebration] = useState(null);
-  const isSunday = new Date(`${dashboard.today.date}T12:00:00`).getDay() === 0;
 
   const current = useMemo(() => {
-    if (type === 'pushups') return exercises.filter((e) => e.name === 'Pushups');
-    return exercises.filter((e) => e.category === type && e.name !== 'Dips');
+    const base = (type === 'pushups'
+      ? exercises.filter((e) => e.name === 'Pushups')
+      : exercises.filter((e) => e.category === type && e.name !== 'Dips')
+    ).map((exercise) => ({ _id: exercise._id, exerciseName: exercise.name }));
+    return type === 'push' ? [...base, { _id: 'dips', exerciseName: 'Dips' }] : base;
   }, [exercises, type]);
 
-  const [logs, setLogs] = useState(() => current.map((exercise) => ({ exercise: exercise._id, exerciseName: exercise.name, sets: blankSets() })));
+  const [logs, setLogs] = useState(() => {
+    const draft = loadDraft(type, today);
+    if (draft?.logs?.length) return draft.logs;
+    return current.map((exercise) => ({ exercise: exercise._id, exerciseName: exercise.exerciseName, sets: blankSets() }));
+  });
+
+  const persist = (nextLogs, nextIndex = index) => saveDraft(type, today, { logs: nextLogs, index: nextIndex });
 
   useEffect(() => {
     request(`/workouts/last/${type}`).then((response) => {
       const last = response?.session;
       setSuggestion(response?.suggested || {});
-      if (!last) return;
+      setLastSession(last);
+      if (!last || loadDraft(type, today)) return;
       setLogs(current.map((exercise) => {
-        const previous = last.exerciseLogs?.find((entry) => entry.exerciseName === exercise.name);
+        const previous = last.exerciseLogs?.find((entry) => entry.exerciseName === exercise.exerciseName);
         if (previous) {
+          const target = Math.max(previous.sets.length, blankSets().length);
           return {
             exercise: exercise._id,
-            exerciseName: exercise.name,
-            sets: [...previous.sets.map((set) => ({ reps: set.reps, weight: set.weight })), ...Array.from({ length: Math.max(0, 3 - previous.sets.length) }, () => ({ reps: '', weight: '' }))]
+            exerciseName: exercise.exerciseName,
+            sets: [...previous.sets.map((set) => ({ reps: set.reps, weight: set.weight })), ...Array.from({ length: Math.max(0, target - previous.sets.length) }, () => ({ reps: '', weight: '' }))]
           };
         }
-        return { exercise: exercise._id, exerciseName: exercise.name, sets: blankSets() };
+        return { exercise: exercise._id, exerciseName: exercise.exerciseName, sets: blankSets() };
       }));
     }).catch(() => {});
     // The exercise selection is intentionally captured when this sheet opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type]);
 
+  const lastEntryFor = (name) => lastSession?.exerciseLogs?.find((entry) => entry.exerciseName === name) || null;
+
+  const lastSetsText = (entry) => {
+    if (!entry?.sets?.length) return null;
+    const worthLogging = entry.sets.filter((set) => Number(set.reps) > 0);
+    if (!worthLogging.length) return null;
+    return worthLogging.map((set) => {
+      const weight = Number(set.weight) || 0;
+      const reps = Number(set.reps) || 0;
+      return weight > 0 ? `${weight} kg × ${reps}` : `${reps} rep${reps > 1 ? 's' : ''}`;
+    }).join('  ·  ');
+  };
+
+  const isDone = (i) => i < index || logs[i].sets.some((set) => Number(set.reps) > 0);
+  const active = logs[index];
   const volume = logs.reduce((total, log) => total + log.sets.reduce((sum, set) => sum + (+set.reps || 0) * (+set.weight || 0), 0), 0);
 
-  const change = (entryIndex, setIndex, key, value) =>
-    setLogs((all) => all.map((entry, i) => i === entryIndex ? { ...entry, sets: entry.sets.map((set, j) => j === setIndex ? { ...set, [key]: value } : set) } : entry));
+  const change = (setIndex, key, value) => {
+    const next = logs.map((entry, i) => i === index ? { ...entry, sets: entry.sets.map((set, j) => j === setIndex ? { ...set, [key]: value } : set) } : entry);
+    setLogs(next);
+    persist(next);
+  };
 
-  const applySuggestion = (entryIndex) => {
-    const proposed = suggestion[logs[entryIndex].exerciseName];
+  const addSet = () => {
+    const next = logs.map((entry, i) => i === index ? { ...entry, sets: [...entry.sets, { reps: '', weight: '' }] } : entry);
+    setLogs(next);
+    persist(next);
+  };
+
+  const applySuggestion = () => {
+    const proposed = suggestion[active.exerciseName];
     if (!proposed) return;
-    setLogs((all) => all.map((entry, i) => i === entryIndex
+    const next = logs.map((entry, i) => i === index
       ? { ...entry, sets: entry.sets.map((set) => proposed.weight === 0 ? { ...set, reps: proposed.reps, weight: '' } : { ...set, reps: proposed.reps, weight: proposed.weight }) }
-      : entry));
+      : entry);
+    setLogs(next);
+    persist(next);
+  };
+
+  const goTo = (nextIndex) => {
+    const clamped = Math.min(current.length - 1, Math.max(0, nextIndex));
+    setIndex(clamped);
+    persist(logs, clamped);
   };
 
   const submit = async () => {
@@ -81,10 +142,11 @@ export function WorkoutSheet({ type, close }) {
     const payload = {
       date: dashboard.today.date,
       type,
-      exerciseLogs: [...logs, ...(dips ? [{ exerciseName: 'Dips', sets: [{ reps: +dips, weight: 0 }] }] : [])]
+      exerciseLogs: logs
     };
     try {
       const result = await request('/workouts', { method: 'POST', body: JSON.stringify(payload) });
+      clearDraft(type, today);
       await refresh();
       const records = result.personalRecords || [];
       if (records.length) {
@@ -115,6 +177,7 @@ export function WorkoutSheet({ type, close }) {
         close();
       }
     } catch {
+      clearDraft(type, today);
       queue({ path: '/workouts', options: { method: 'POST', body: JSON.stringify(payload) } });
       close();
     } finally {
@@ -122,85 +185,96 @@ export function WorkoutSheet({ type, close }) {
     }
   };
 
+  const isLast = index === current.length - 1;
+  const proposed = suggestion[active.exerciseName];
+  const bodyweight = proposed?.weight === 0 || active.sets.every((s) => s.weight === 0 || s.weight === '');
+  const lastText = lastSetsText(lastEntryFor(active.exerciseName));
+
   return (
     <div className="sheet-backdrop">
       {celebration && <Celebration {...celebration} onClose={close} />}
       <section className="workout-sheet">
         <header>
           <div>
-            <span className="eyebrow">{type === 'pushups' ? 'SUNDAY ONLY' : 'SESSION BUILDER'}</span>
-            <h2>{type === 'pushups' ? 'Pushup milestone' : `${type[0].toUpperCase() + type.slice(1)} session`}</h2>
+            <span className="eyebrow">LOG AS YOU GO · {type === 'pushups' ? 'SUNDAY ONLY' : type[0].toUpperCase() + type.slice(1)}</span>
+            <h2>{typeTitle[type] || 'Session'}</h2>
           </div>
           <button className="icon-button" onClick={close}><X /></button>
         </header>
-        {type === 'pull' && (
-          <div className="superset-note">
-            <Zap size={16} /> Close Grip EZ Curls + Seated Preacher Curls are paired as a superset.
-          </div>
-        )}
-        {Object.keys(suggestion).length > 0 && (
-          <div className="plan-note">
-            <Wand2 size={15} /> Progressive plan loaded — tap <b>Apply</b> on any exercise to lock in the next realistic step.
-          </div>
-        )}
-        <div className="workout-exercises">
-          {logs.map((log, entryIndex) => {
-            const proposed = suggestion[log.exerciseName];
-            const bodyweight = proposed?.weight === 0 || log.sets.every((s) => s.weight === 0 || s.weight === '');
-            return (
-              <div className={`exercise-entry ${isSuperset(log.exerciseName) ? 'superset' : ''}`} key={log.exerciseName}>
-                <div className="exercise-title">
-                  <b>{log.exerciseName}</b>
-                  <small>{isSuperset(log.exerciseName) ? 'Superset' : 'Taps adjust reps · weight'}</small>
-                </div>
-                {proposed && (
-                  <button className="suggestion-chip" onClick={() => applySuggestion(entryIndex)}>
-                    <Zap size={13} />
-                    <span>
-                      <b>{proposed.weight === 0 ? `${proposed.reps} reps` : `${formatWeight(proposed.weight)} kg × ${proposed.reps}`}</b>
-                      <small>{proposed.note}</small>
-                    </span>
-                    <em>Apply</em>
-                  </button>
-                )}
-                <div className="sets-grid">
-                  <span>SET</span>
-                  <span>REPS</span>
-                  <span>KG</span>
-                  {log.sets.map((set, setIndex) => (
-                    <div className="set-row" key={setIndex}>
-                      <i>{setIndex + 1}</i>
-                      <Stepper value={set.reps} step={1} onChange={(v) => change(entryIndex, setIndex, 'reps', v)} />
-                      <Stepper
-                        value={set.weight}
-                        step={weightStepFor(set.weight)}
-                        disabled={bodyweight}
-                        onChange={(v) => change(entryIndex, setIndex, 'weight', v)}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
+
+        <div className="exercise-progress">
+          {current.map((exercise, i) => (
+            <button
+              key={exercise.exerciseName}
+              className={`dot ${i === index ? 'active' : ''} ${isDone(i) ? 'done' : ''}`}
+              onClick={() => goTo(i)}
+              title={exercise.exerciseName}
+              aria-label={`Jump to ${exercise.exerciseName}`}
+            >
+              {i < index || logs[i].sets.some((s) => Number(s.reps) > 0) ? <Check size={11} /> : i + 1}
+            </button>
+          ))}
         </div>
-        {type === 'push' && (
-          <div className="dips-dock">
-            <div>
-              <Dumbbell size={18} />
-              <span><b>Log Dips</b><small>Any time, including warm-up</small></span>
+
+        <div className="workout-exercises">
+          {active && (
+            <div className={`exercise-entry current-exercise ${isSuperset(active.exerciseName) ? 'superset-running' : ''}`}>
+              <div className="exercise-title">
+                <b>{active.exerciseName}</b>
+                <small>Exercise {index + 1} of {current.length} · {isDone(index) ? 'logged' : 'tap to log'}</small>
+              </div>
+              {lastText && (
+                <div className="last-session-note">
+                  <History size={13} />
+                  <span>Last session: <b>{lastText}</b></span>
+                  <em>your numbers are prefilled — beat them today</em>
+                </div>
+              )}
+              {proposed && (
+                <button className="suggestion-chip" onClick={applySuggestion}>
+                  <Zap size={13} />
+                  <span>
+                    <b>{proposed.weight === 0 ? `${proposed.reps} reps` : `${formatWeight(proposed.weight)} kg × ${proposed.reps}`}</b>
+                    <small>{proposed.note}</small>
+                  </span>
+                  <em>Apply</em>
+                </button>
+              )}
+              <div className="sets-grid">
+                <span>SET</span>
+                <span>REPS</span>
+                <span>KG</span>
+                {active.sets.map((set, setIndex) => (
+                  <div className="set-row" key={setIndex}>
+                    <i>{setIndex + 1}</i>
+                    <Stepper value={set.reps} step={1} onChange={(v) => change(setIndex, 'reps', v)} />
+                    <Stepper value={set.weight} step={weightStepFor(set.weight)} disabled={bodyweight} onChange={(v) => change(setIndex, 'weight', v)} />
+                  </div>
+                ))}
+              </div>
+              <button className="add-set" onClick={addSet}><Plus size={13} /> Add another set</button>
             </div>
-            <input inputMode="numeric" value={dips} onChange={(e) => setDips(e.target.value)} placeholder="reps" />
-          </div>
-        )}
+          )}
+        </div>
+
         <footer>
-          <div>
-            <small>SESSION VOLUME</small>
+          <div className="volume-chip">
+            <small>LIVE VOLUME</small>
             <strong>{number(volume)} kg</strong>
           </div>
-          <button className="save-workout" disabled={saving} onClick={submit}>
-            {saving ? 'Saving...' : <><Check size={18} /> Complete session</>}
-          </button>
+          <div className="sheet-actions">
+            {index > 0 && <button className="nav-back" onClick={() => goTo(index - 1)}><ChevronLeft size={16} /> Back</button>}
+            {!isLast ? (
+              <>
+                <button className="skip-exercise" onClick={() => goTo(index + 1)}><SkipForward size={14} /> Skip</button>
+                <button className="save-workout" onClick={() => goTo(index + 1)}>Done · Next <ChevronRight size={16} /></button>
+              </>
+            ) : (
+              <button className="save-workout" disabled={saving} onClick={submit}>
+                {saving ? 'Saving...' : <><Check size={18} /> Complete session</>}
+              </button>
+            )}
+          </div>
         </footer>
       </section>
     </div>

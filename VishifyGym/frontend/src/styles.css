@@ -254,6 +254,26 @@ button:disabled { opacity: .6; cursor: progress; }
 .exercise-title { display: flex; justify-content: space-between; align-items: baseline; gap: 7px; margin-bottom: 8px; }
 .exercise-title b { font-size: 12px; }
 .exercise-title small { text-align: right; color: #77838d; font-size: 8px; }
+.exercise-progress { display: flex; gap: 8px; padding: 12px 21px 0; overflow-x: auto; }
+.dot { flex: none; width: 28px; height: 28px; border-radius: 9px; border: 1px solid #ffffff14; background: #ffffff05; color: #6f7d87; font: 800 11px 'DM Mono'; display: grid; place-items: center; cursor: pointer; transition: .18s; }
+.dot:hover { border-color: #7CFF6B44; }
+.dot.done { background: #7CFF6B18; border-color: #7CFF6B3d; color: #aaff9c; }
+.dot.active { background: linear-gradient(135deg, #7CFF6B, #4ade80); border-color: transparent; color: #081008; box-shadow: 0 6px 18px #7CFF6B38; }
+.current-exercise { border: 1px solid #ffffff14; border-radius: 14px; background: linear-gradient(160deg, #141b26, #0f141c); padding: 13px 14px; margin-top: 2px; }
+.current-exercise.superset-running { display: block; width: auto; margin-right: 0; border-left: 2px solid #a992ff; }
+.add-set { display: inline-flex; align-items: center; gap: 5px; margin-top: 9px; border: 1px dashed #ffffff1a; background: transparent; color: #8b97a1; font-size: 9px; font-weight: 700; border-radius: 9px; padding: 7px 11px; transition: .18s; cursor: pointer; }
+.add-set:hover { border-color: #7CFF6B44; color: #aaff9c; background: #7CFF6B0a; }
+.last-session-note { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-bottom: 9px; padding: 8px 10px; background: #7CFF6B0a; border: 1px dashed #7CFF6B2b; border-radius: 9px; font-size: 9px; color: #8fa99c; }
+.last-session-note svg { color: #7CFF6B; flex: none; }
+.last-session-note b { color: #cdf7c8; font: 700 10px 'DM Mono'; letter-spacing: -.2px; }
+.last-session-note em { font-style: normal; color: #5f7a6d; margin-left: auto; }
+.sheet-actions { display: flex; align-items: center; gap: 8px; }
+.workout-sheet footer .sheet-actions { display: flex; }
+.nav-back, .skip-exercise { border: 1px solid #ffffff12; background: transparent; color: #8b97a1; border-radius: 10px; padding: 11px 12px; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; transition: .18s; cursor: pointer; }
+.nav-back:hover, .skip-exercise:hover { border-color: #ffffff24; color: #cfdadf; }
+.volume-chip { display: grid; }
+.volume-chip small { color: #77838d; font: 9px 'DM Mono'; }
+.volume-chip strong { font: 800 18px 'DM Mono'; color: #aaff9c; }
 .sets-grid { display: grid; grid-template-columns: 34px 1fr 1fr; gap: 5px; }
 .sets-grid > span { color: #66737e; font: 8px 'DM Mono'; padding: 0 7px; }
 .set-row { display: contents; }
@@ -547,6 +567,8 @@ button:disabled { opacity: .6; cursor: progress; }
   .workout-sheet { width: 100%; }
   .exercise-entry.superset { width: 100%; margin-right: 0; }
   .session-chips { grid-template-columns: repeat(2, 1fr); }
+  .workout-sheet footer { flex-wrap: wrap; gap: 10px; }
+  .workout-sheet footer .sheet-actions { width: 100%; justify-content: flex-end; }
 }
 
 @media (max-width: 390px) {
