@@ -1,16 +1,30 @@
-import { useState } from 'react';
-import { ArrowDownToLine, ChevronDown, ChevronUp, CirclePlus, Dumbbell, Flame, LogOut, Target, X, Activity } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ArrowDownToLine, CheckCircle2, ChevronDown, ChevronUp, CirclePlus, Dumbbell, Flame, LogOut, Target, X, Activity } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useGym } from '../state/GymContext';
 import { Card } from '../components/Card';
 import { API_BASE, getToken } from '../lib/api';
 
 export function Settings() {
-  const { exercises, editExercise, reorderExercises, user, logout } = useGym();
+  const { exercises, editExercise, reorderExercises, updateProfile, user, logout, dashboard } = useGym();
   const [name, setName] = useState('');
   const [category, setCategory] = useState('push');
   const [filter, setFilter] = useState('all');
   const [justRemoved, setJustRemoved] = useState(null);
+  const [targets, setTargets] = useState({
+    proteinTarget: dashboard.today.proteinTarget ?? 50,
+    calorieTarget: dashboard.today.calorieTarget ?? 900,
+    cardioTargetMinutes: dashboard.today.cardioTargetMinutes ?? 20
+  });
+  const [savedTargets, setSavedTargets] = useState(false);
+
+  useEffect(() => {
+    setTargets({
+      proteinTarget: dashboard.today.proteinTarget ?? 50,
+      calorieTarget: dashboard.today.calorieTarget ?? 900,
+      cardioTargetMinutes: dashboard.today.cardioTargetMinutes ?? 20
+    });
+  }, [dashboard.today.proteinTarget, dashboard.today.calorieTarget, dashboard.today.cardioTargetMinutes]);
 
   const displayed = exercises.filter((exercise) => filter === 'all' || exercise.category === filter);
 
@@ -37,6 +51,19 @@ export function Settings() {
     const next = [...sameCategory];
     [next[from], next[to]] = [next[to], next[from]];
     await reorderExercises(target.category, next.map((e) => e._id));
+  };
+
+  const saveTargets = async (event) => {
+    event.preventDefault();
+    const updated = await updateProfile({
+      proteinTarget: Math.max(0, Number(targets.proteinTarget) || 0),
+      calorieTarget: Math.max(0, Number(targets.calorieTarget) || 0),
+      cardioTargetMinutes: Math.max(0, Math.round(Number(targets.cardioTargetMinutes) || 0))
+    });
+    if (updated) {
+      setSavedTargets(true);
+      setTimeout(() => setSavedTargets(false), 2200);
+    }
   };
 
   const download = async () => {
@@ -111,16 +138,17 @@ export function Settings() {
       </Card>
 
       <div className="settings-grid">
-        <Card title="Daily targets" subtitle="Set the baseline for your streaks">
-          <div className="target-settings">
-            <label><Target /> Protein<input type="number" defaultValue={130} /></label>
-            <label><Flame /> Calories<input type="number" defaultValue={2400} /></label>
-            <label><Activity /> Cardio<input type="number" defaultValue={20} /></label>
-          </div>
+        <Card title="Daily targets" subtitle="Set the bar — then just log and let the coach nudge you">
+          <form className="target-settings" onSubmit={saveTargets}>
+            <label><Target /> Protein<input type="number" value={targets.proteinTarget} onChange={(e) => setTargets({ ...targets, proteinTarget: e.target.value })} /></label>
+            <label><Flame /> Calories<input type="number" value={targets.calorieTarget} onChange={(e) => setTargets({ ...targets, calorieTarget: e.target.value })} /></label>
+            <label><Activity /> Cardio<input type="number" value={targets.cardioTargetMinutes} onChange={(e) => setTargets({ ...targets, cardioTargetMinutes: e.target.value })} /></label>
+            <button className={savedTargets ? 'target-saved' : ''}>{savedTargets ? <><CheckCircle2 size={15} /> Saved</> : 'Save targets'}</button>
+          </form>
         </Card>
         <Card title="Offline sync" subtitle="Your logs go with you">
           <div className="privacy-note">
-            <p>The app caches your dashboard in your browser and queues any input made without a connection. When the network returns, everything flushes to your backend automatically.</p>
+            <p>Three pillars, zero excuses — the app caches your dashboard in your browser and queues any input made without a connection. When the network returns, everything flushes to your backend automatically.</p>
             <span className="sync-status"><i /> Queue protected</span>
           </div>
         </Card>

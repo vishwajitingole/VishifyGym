@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ClipboardList, Filter, RotateCcw, Waves } from 'lucide-react';
+import { ClipboardList, Filter, RotateCcw } from 'lucide-react';
 import { useGym } from '../state/GymContext';
 import { request } from '../lib/api';
 
@@ -105,7 +105,7 @@ export function Logs() {
         <div className="empty-card">
           <ClipboardList size={30} />
           <b>Nothing logged{applied.type || applied.exercise || applied.from ? ' for these filters' : ' yet'}.</b>
-          <p>Your workout, cardio, food, water and bodyweight logs will show up here — with full set-by-set detail.</p>
+          <p>Your workouts, cardio sessions, and egg & curd meals will show up here — with full set-by-set detail.</p>
           {(applied.type || applied.exercise || applied.from) && <button className="filter-reset" onClick={clearFilters}>Clear filters</button>}
         </div>
       ) : (
@@ -138,10 +138,10 @@ function DayCard({ day, targets, applied, exerciseOnly }) {
             <>
               <span><b>{protein}</b> / {targets.proteinTarget} g protein</span>
               <span><b>{calories}</b> kcal</span>
+              <span>{log?.eggs || 0} eggs</span>
+              <span>{log?.dahiBowls || 0} dahi bowls</span>
             </>
           )}
-          <span title="Water"><Waves size={13} /> <b>{log?.waterGlasses || 0}</b> glasses</span>
-          {log?.bodyweight != null && <span><b>{log.bodyweight}</b> kg</span>}
         </div>
       </header>
 

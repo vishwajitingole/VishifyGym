@@ -1,11 +1,10 @@
-import { CloudOff, Dumbbell, Flame, Loader2, Sparkles, Target, Trophy, Waves } from 'lucide-react';
+import { CloudOff, Loader2, Trophy, Waves } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useGym } from '../state/GymContext';
 import { dateLabel } from '../data';
-import { RingGauge } from '../components/RingGauge';
-import { NutritionActions } from '../components/NutritionActions';
-import { BodyweightCard } from '../components/BodyweightCard';
-import { WaterCard } from '../components/WaterCard';
+import { TodayChecklist } from '../components/TodayChecklist';
+import { CoachNote } from '../components/CoachNote';
+import { FuelPanel } from '../components/FuelPanel';
 import { ConsistencyCalendar } from '../components/ConsistencyCalendar';
 import { RecoveryMap } from '../components/RecoveryMap';
 import { GroceryForecast } from '../components/GroceryForecast';
@@ -14,9 +13,9 @@ import { QuickPlanStatus } from '../components/QuickPlanStatus';
 
 export function Overview() {
   const { dashboard, offline, syncing, pending } = useGym();
-  const { today, weekly, workouts, forecast, streaks } = dashboard;
+  const { today, weekly, workouts, forecast, streaks, coach } = dashboard;
   const isSunday = new Date(`${today.date}T12:00:00`).getDay() === 0;
-  const proteinStreak = streaks?.protein ?? weekly.filter((d) => d.protein >= today.proteinTarget).length;
+  const proteinStreak = streaks?.protein ?? weekly.filter((d) => d.protein >= (today.proteinTarget || 50)).length;
 
   return (
     <main className="page-content home-view">
@@ -31,38 +30,19 @@ export function Overview() {
         </div>
       </header>
 
-      <section className="hero">
-        <div className="hero-grid" />
-        <div className="hero-copy">
-          <span className="hero-pill"><Sparkles size={14} /> Daily command center</span>
-          <h2>Small logs.<br /><em>Big momentum.</em></h2>
-          <p>Fuel with intention and make every rep count.</p>
-        </div>
-        <div className="hero-figure">
-          <div className="orbit orbit-one" />
-          <div className="orbit orbit-two" />
-          <div className="lift-icon"><Dumbbell size={58} /></div>
-          <span className="hero-float f-one">+6g <small>protein</small></span>
-          <span className="hero-float f-two">PR <Trophy size={13} /></span>
-        </div>
-      </section>
+      <TodayChecklist />
+
+      <CoachNote coach={coach} />
+
+      <FuelPanel />
 
       <QuickPlanStatus />
 
-      <NutritionActions />
-
-      <BodyweightCard />
-
-      <section className="gauge-grid">
-        <RingGauge value={today.nutrition.protein} target={today.proteinTarget} label="Protein" unit="g" icon={Target} />
-        <RingGauge value={today.nutrition.calories} target={today.calorieTarget} label="Calories" unit="kcal" color="#71e6f4" icon={Flame} />
-      </section>
-
       <section className="today-workout">
         <div>
-          <span className="eyebrow">TRAINING PLAN</span>
-          <h2>{isSunday ? 'Sunday pushup focus' : 'What are we training?'}</h2>
-          <p>{isSunday ? 'The only scheduled movement today: Pushups.' : 'Start a focused plan — log one exercise at a time. Your last numbers are ready.'}</p>
+          <span className="eyebrow">TRAINING PLANS</span>
+          <h2>{isSunday ? 'Sunday pushup focus' : 'Pick your load'}</h2>
+          <p>{isSunday ? 'The only scheduled movement today: Pushups.' : 'One exercise at a time. Your last numbers are prefilled — beat them.'}</p>
         </div>
         <div className="workout-buttons">
           {isSunday ? <SessionLauncher type="pushups" /> : <><SessionLauncher type="push" /><SessionLauncher type="pull" /></>}
@@ -71,8 +51,7 @@ export function Overview() {
 
       <div className="content-grid">
         <div className="stack">
-          <WaterCard />
-          <ConsistencyCalendar weekly={weekly} streak={proteinStreak} />
+          <ConsistencyCalendar weekly={weekly} streak={proteinStreak} target={today.proteinTarget || 50} />
         </div>
         <div className="stack">
           <GroceryForecast forecast={forecast} />
@@ -80,7 +59,7 @@ export function Overview() {
         </div>
       </div>
 
-      <Link to="/logs" className="home-logs-link"><Trophy size={14} /> Review every workout, meal, and weigh-in in your log book →</Link>
+      <Link to="/logs" className="home-logs-link"><Trophy size={14} /> Review every workout, cardio session, and meal in your log book →</Link>
     </main>
   );
 }

@@ -687,3 +687,88 @@ button:disabled { opacity: .6; cursor: progress; }
 @media (prefers-reduced-motion: reduce) {
   *, *:before, *:after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
+
+/* ============ TODAY CHECKLIST ============ */
+.today-checklist { margin: 16px 0 0; padding: 18px 18px 14px; }
+.today-checklist.wrapped { border-color: #7CFF6B44; box-shadow: 0 0 40px #7CFF6B0f; }
+.checklist-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 13px; }
+.checklist-head h2 { font-size: 20px; margin: 2px 0 0; }
+.wrap-chip { font: 700 10px 'DM Mono'; color: #7d8892; background: #ffffff08; border: 1px solid #ffffff10; padding: 5px 9px; border-radius: 30px; white-space: nowrap; }
+.wrap-chip.done { color: #9ffb93; background: #7CFF6B14; border-color: #7CFF6B30; }
+.checklist-rows { display: grid; gap: 9px; }
+.checklist-row { display: flex; align-items: center; gap: 12px; padding: 11px 13px; border: 1px solid #ffffff0d; border-radius: 14px; background: #ffffff04; transition: border-color .25s, background .25s; }
+.checklist-row.done { border-color: #7CFF6B26; background: #7CFF6B0a; }
+.checklist-status { width: 33px; height: 33px; border-radius: 10px; display: grid; place-items: center; flex: none; color: #7d8892; background: #ffffff08; border: 1px solid #ffffff12; transition: .25s; }
+.checklist-row.done .checklist-status { color: #05260f; background: #7CFF6B; border-color: #7CFF6B; box-shadow: 0 0 14px #7CFF6B55; }
+.checklist-copy { flex: 1; min-width: 0; }
+.checklist-copy b { display: block; font-size: 13px; }
+.checklist-copy small { display: block; color: #7d8892; font-size: 10px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.checklist-actions { display: flex; gap: 6px; }
+.checklist-add, .checklist-cta { font-size: 10px; font-weight: 800; color: #f6c26a; background: #ffcf9a12; border: 1px solid #ffcf9a2e; border-radius: 9px; padding: 8px 11px; cursor: pointer; transition: .2s; white-space: nowrap; }
+.checklist-add.curd { color: #71e6f4; background: #71e6f412; border-color: #71e6f42e; }
+.checklist-add:hover:not(:disabled), .checklist-cta:hover { filter: brightness(1.2); transform: translateY(-1px); }
+.checklist-add:disabled { opacity: .38; cursor: default; }
+.checklist-cta { color: #aaff9c; background: #7CFF6B12; border-color: #7CFF6B30; min-width: 86px; }
+
+/* ============ COACH NOTE ============ */
+.coach-note { margin-top: 14px; padding: 16px 18px; background: linear-gradient(115deg, #101c16, #10151d); }
+.coach-body { display: grid; gap: 6px; }
+.coach-focus { margin: 0; font-size: 13px; font-weight: 800; color: #eef4f2; display: flex; align-items: flex-start; gap: 8px; line-height: 1.5; }
+.coach-focus svg { color: #7CFF6B; flex: none; position: relative; top: 2px; }
+.coach-tip { margin: 0; color: #8f9aa2; font-size: 11px; line-height: 1.55; }
+.coach-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 12px; padding-top: 11px; border-top: 1px solid #ffffff0c; }
+.coach-counts { display: flex; gap: 7px; flex-wrap: wrap; }
+.coach-counts span { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; color: #7d8892; background: #ffffff07; border: 1px solid #ffffff0c; padding: 4px 8px; border-radius: 8px; }
+.coach-counts b { color: #fff; font-family: 'DM Mono'; }
+.coach-chip { display: inline-flex; align-items: center; gap: 5px; font: 700 10px 'DM Mono'; padding: 5px 9px; border-radius: 30px; }
+.coach-chip.up { color: #9ffb93; background: #7CFF6B14; border: 1px solid #7CFF6B30; }
+.coach-chip.down { color: #ffa8a2; background: #ff6b6b12; border: 1px solid #ff6b6b2b; }
+.coach-chip.neutral { color: #cad2d5; background: #ffffff08; border: 1px solid #ffffff12; }
+
+/* ============ FUEL PANEL ============ */
+.fuel-card { margin-top: 14px; padding: 17px; }
+.outline-chip { font: 700 10px 'DM Mono'; color: #f6c26a; background: #ffcf9a10; border: 1px solid #ffcf9a2b; padding: 5px 9px; border-radius: 30px; white-space: nowrap; }
+.fuel-body { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center; margin-top: 13px; }
+.fuel-ring { position: relative; width: 104px; height: 104px; }
+.fuel-ring svg { width: 104px; height: 104px; transform: rotate(-90deg); }
+.fuel-ring .gauge-track, .fuel-ring .gauge-value { fill: none; stroke-width: 9; }
+.fuel-ring .gauge-track { stroke: #ffffff0d; }
+.fuel-ring .gauge-value { stroke-linecap: round; transition: stroke-dashoffset 750ms cubic-bezier(.2, .9, .2, 1); filter: drop-shadow(0 0 4px currentColor); }
+.fuel-ring-num { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
+.fuel-ring-num b { font: 700 21px 'DM Mono'; }
+.fuel-ring-num span { color: #7d8892; font: 9px 'DM Mono'; }
+.fuel-actions { display: grid; gap: 9px; }
+.fuel-add { border: 1px solid; min-height: 56px; padding: 9px 14px; border-radius: 14px; display: flex; align-items: center; gap: 11px; text-align: left; cursor: pointer; transition: transform .2s, filter .2s, box-shadow .2s; }
+.fuel-add:hover { transform: translateY(-2px); filter: brightness(1.15); }
+.fuel-add.egg { background: linear-gradient(110deg, #252122, #171414); border-color: #ffcf9a34; }
+.fuel-add.dahi { background: linear-gradient(110deg, #13252a, #101a21); border-color: #71e6f431; }
+.fuel-add b, .fuel-add small { display: block; }
+.fuel-add b { font-size: 13px; }
+.fuel-add small { font-family: 'DM Mono'; font-size: 9px; color: #9da5aa; margin-top: 2px; }
+.fuel-add > strong { margin-left: auto; font-family: 'DM Mono'; color: #fff; background: #ffffff0c; min-width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; font-size: 11px; }
+.fuel-week { display: flex; gap: 6px; align-items: flex-end; margin-top: 14px; padding-top: 12px; border-top: 1px solid #ffffff0c; }
+.fuel-day { display: grid; justify-items: center; gap: 4px; flex: 1; }
+.fuel-day-bars { display: flex; gap: 2px; align-items: flex-end; height: 36px; }
+.fuel-day-bars i { width: 7px; border-radius: 3px 3px 1px 1px; display: block; transition: height .4s; }
+.fuel-day-bars i.egg { background: #f6c26a; }
+.fuel-day-bars i.dahi { background: #a992ff; }
+.fuel-day span { color: #7d8892; font: 9px 'DM Mono'; }
+.fuel-legend { display: flex; gap: 10px; align-self: center; margin-left: auto; color: #7d8892; font-size: 9px; }
+.fuel-legend i { width: 8px; height: 8px; border-radius: 3px; display: inline-block; margin-right: 4px; vertical-align: -1px; }
+.fuel-legend i.egg { background: #f6c26a; }
+.fuel-legend i.dahi { background: #a992ff; }
+
+/* ============ SETTINGS TARGETS SAVED ============ */
+.target-settings button { grid-column: 1 / -1; border: 1px solid #7CFF6B36; color: #aaff9c; background: #7CFF6B12; border-radius: 10px; padding: 10px; font-size: 11px; font-weight: 800; cursor: pointer; transition: .2s; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.target-settings button:hover { background: #7CFF6B20; }
+.target-settings button.target-saved { background: #7CFF6B24; border-color: #7CFF6B66; }
+
+.chart-key i.green { background: #7CFF6B; }
+.chart-key i.purple { background: #a992ff; }
+
+@media (max-width: 720px) {
+  .fuel-body { grid-template-columns: 1fr; justify-items: center; }
+  .fuel-actions { width: 100%; }
+  .checklist-row { flex-wrap: wrap; }
+  .checklist-actions, .checklist-cta { margin-left: 45px; }
+}

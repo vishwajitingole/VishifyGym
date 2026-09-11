@@ -19,8 +19,6 @@ const fallbackSeries = (days) => {
       dahiBowls: Math.round(seed * 2),
       protein: Math.round(25 + seed * 45),
       calories: Math.round(300 + seed * 500),
-      waterGlasses: Math.round(3 + seed * 5),
-      bodyweight: 74.6 - i * 0.04 + (i % 5 === 2 ? 0.3 : 0),
       volume: i % 3 === 0 ? Math.round(1200 + seed * 2600) : 0,
       workedOut: i % 3 === 0,
       cardioMinutes: i % 4 === 0 ? 20 + seed * 15 : 0
@@ -62,7 +60,7 @@ export function Progress() {
 
       <div className="progress-strip">
         <div className="progress-stat"><span>volume moved</span><b>{Intl.NumberFormat('en-IN').format(daily.reduce((t, d) => t + (d.volume || 0), 0))} kg</b></div>
-        <div className="progress-stat"><span>avg bodyweight</span><b>{(daily.filter((d) => d.bodyweight != null).reduce((t, d, _, arr) => t + d.bodyweight / (arr.length || 1), 0)).toFixed(1)} kg</b></div>
+        <div className="progress-stat"><span>training days</span><b>{daily.filter((d) => d.workedOut).length}</b></div>
         <div className="progress-stat"><span>protein streak</span><b>{progress.streaks?.protein || 0} days</b></div>
         <div className="progress-stat"><span>cardio streak</span><b>{progress.streaks?.cardio || 0} days</b></div>
       </div>

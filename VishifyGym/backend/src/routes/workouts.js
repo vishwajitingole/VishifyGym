@@ -5,7 +5,7 @@ import User from '../models/User.js';
 import { maxRepsFor, maxWeightFor, suggestProgression, volumeFor } from '../utils/metrics.js';
 
 const router = Router();
-const isoDay = () => new Date().toISOString().slice(0, 10);
+const isoDay = () => new Date().toLocaleDateString('en-CA');
 
 const typeRecord = (session, previous, current) => ({
   broke: current > previous && current > 0,

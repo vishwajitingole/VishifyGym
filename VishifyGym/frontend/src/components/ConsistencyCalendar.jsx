@@ -1,18 +1,16 @@
 import { Dumbbell } from 'lucide-react';
 import { Card } from './Card';
 
-const PROTEIN_TARGET = 130;
-
-export function ConsistencyCalendar({ weekly, streak }) {
+export function ConsistencyCalendar({ weekly, streak, target = 50 }) {
   return (
     <Card
       title="Consistency"
-      subtitle="Protein goal · training logged"
+      subtitle="Egg + curd protein · training logged"
       action={<span className="green-chip"><Dumbbell size={14} /> {streak || 0} day run</span>}
     >
       <div className="consistency-grid">
         {weekly.map((day) => {
-          const proteinDone = day.protein >= PROTEIN_TARGET;
+          const proteinDone = day.protein >= target;
           return (
             <div className="consistency-day" key={day.date}>
               <div className={`contribution ${day.workedOut ? 'trained' : ''} ${proteinDone ? 'fed' : ''}`} title={`${day.date}: ${day.workedOut ? 'trained' : 'no training'}, ${proteinDone ? 'protein hit' : 'protein not hit'}`}>
@@ -26,7 +24,7 @@ export function ConsistencyCalendar({ weekly, streak }) {
       <div className="legend">
         <span><i className="contribution" /> Rest</span>
         <span><i className="contribution trained" /> Training</span>
-        <span><i className="contribution fed" /> Protein hit</span>
+        <span><i className="contribution fed" /> Eggs+curd hit</span>
       </div>
     </Card>
   );

@@ -10,8 +10,8 @@ const withTargets = async (log) => {
   const user = await User.findById(log.userId);
   return {
     ...log.toObject(),
-    proteinTarget: user?.proteinTarget || 130,
-    calorieTarget: user?.calorieTarget || 2400,
+    proteinTarget: user?.proteinTarget || 50,
+    calorieTarget: user?.calorieTarget || 900,
     cardioTargetMinutes: user?.cardioTargetMinutes || 20,
     nutrition: nutritionFor(log)
   };
@@ -27,7 +27,7 @@ router.get('/:date', async (req, res, next) => {
 
 router.patch('/:date', async (req, res, next) => {
   try {
-    const allowed = ['eggs', 'dahiBowls', 'waterGlasses', 'bodyweight', 'notes'];
+    const allowed = ['eggs', 'dahiBowls'];
     const update = Object.fromEntries(Object.entries(req.body).filter(([key]) => allowed.includes(key)));
     const log = await DailyLog.findOneAndUpdate({ userId: req.userId, date: req.params.date }, { $set: update, $setOnInsert: { userId: req.userId, date: req.params.date } }, { new: true, upsert: true, runValidators: true });
     res.json(await withTargets(log));
@@ -36,9 +36,9 @@ router.patch('/:date', async (req, res, next) => {
 
 router.post('/:date/quick-add', async (req, res, next) => {
   try {
-    const increments = { egg: { eggs: 1 }, dahi: { dahiBowls: 1 }, water: { waterGlasses: 1 }, bottle: { waterGlasses: 4 } };
+    const increments = { egg: { eggs: 1 }, dahi: { dahiBowls: 1 } };
     const update = increments[req.body.item];
-    if (!update) return res.status(400).json({ message: 'item must be egg, dahi, water, or bottle.' });
+    if (!update) return res.status(400).json({ message: 'item must be egg or dahi.' });
     const log = await DailyLog.findOneAndUpdate({ userId: req.userId, date: req.params.date }, { $inc: update, $setOnInsert: { userId: req.userId, date: req.params.date } }, { new: true, upsert: true });
     res.json(await withTargets(log));
   } catch (error) { next(error); }

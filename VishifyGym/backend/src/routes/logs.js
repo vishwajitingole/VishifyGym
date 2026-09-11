@@ -5,7 +5,7 @@ import User from '../models/User.js';
 import { nutritionFor } from '../utils/metrics.js';
 
 const router = Router();
-const isoDay = () => new Date().toISOString().slice(0, 10);
+const isoDay = () => new Date().toLocaleDateString('en-CA');
 
 router.get('/', async (req, res, next) => {
   try {
@@ -38,8 +38,8 @@ router.get('/', async (req, res, next) => {
     res.json({
       date: to,
       targets: {
-        proteinTarget: user?.proteinTarget || 130,
-        calorieTarget: user?.calorieTarget || 2400,
+        proteinTarget: user?.proteinTarget || 50,
+        calorieTarget: user?.calorieTarget || 900,
         cardioTargetMinutes: user?.cardioTargetMinutes || 20
       },
       totals: {

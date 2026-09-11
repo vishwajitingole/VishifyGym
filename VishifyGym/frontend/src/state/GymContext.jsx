@@ -178,15 +178,11 @@ export function GymProvider({ children }) {
   };
 
   const quickAdd = async (item) => {
-    const map = { egg: 'eggs', dahi: 'dahiBowls', water: 'waterGlasses', bottle: 'waterGlasses' };
-    const step = item === 'bottle' ? 4 : 1;
+    const map = { egg: 'eggs', dahi: 'dahiBowls' };
     const property = map[item];
     const before = dashboard.today;
-    const nextCount = before[property] + step;
+    const nextCount = before[property] + 1;
     const resultingProtein = (before.eggs + (item === 'egg' ? 1 : 0)) * NUTRITION.egg.protein + (before.dahiBowls + (item === 'dahi' ? 1 : 0)) * NUTRITION.dahiBowl.protein;
-    if ((item === 'water' || item === 'bottle') && nextCount >= 10) {
-      confetti({ particleCount: 80, spread: 60, origin: { y: 0.2 }, colors: ['#71e6f4', '#ffffff'] });
-    }
     await updateToday({ [property]: nextCount });
     if (before.nutrition.protein < before.proteinTarget && resultingProtein >= before.proteinTarget) {
       confetti({
@@ -197,6 +193,18 @@ export function GymProvider({ children }) {
       });
     }
   };
+
+  const updateProfile = useCallback(async (updates) => {
+    try {
+      const profile = await request('/auth/me', { method: 'PATCH', body: JSON.stringify(updates) });
+      setUser((prev) => ({ ...prev, ...profile }));
+      localStorage.setItem('vishify-user', JSON.stringify(profile));
+      await refresh();
+      return profile;
+    } catch {
+      return null;
+    }
+  }, [refresh]);
 
   const editExercise = async (operation, data) => {
     if (operation === 'add') {
@@ -232,7 +240,7 @@ export function GymProvider({ children }) {
   }, [refresh, user]);
 
   const value = useMemo(
-    () => ({ user, login, register, logout, authenticating, authError, dashboard, exercises, offline, syncing, pending: readQueue().length, quickAdd, updateToday, editExercise, reorderExercises, refresh }),
+    () => ({ user, login, register, logout, authenticating, authError, dashboard, exercises, offline, syncing, pending: readQueue().length, quickAdd, updateToday, updateProfile, editExercise, reorderExercises, refresh }),
     [user, login, register, logout, authenticating, authError, dashboard, exercises, offline, syncing]
   );
   return <GymContext.Provider value={value}>{children}</GymContext.Provider>;

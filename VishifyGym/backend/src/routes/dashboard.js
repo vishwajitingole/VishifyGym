@@ -2,40 +2,43 @@ import { Router } from 'express';
 import DailyLog from '../models/DailyLog.js';
 import User from '../models/User.js';
 import WorkoutSession from '../models/WorkoutSession.js';
-import { nutritionFor } from '../utils/metrics.js';
+import { nutritionFor, volumeFor } from '../utils/metrics.js';
 
 const router = Router();
-const isoDay = (shift = 0) => { const d = new Date(); d.setDate(d.getDate() + shift); return d.toISOString().slice(0, 10); };
+const isoDay = (shift = 0) => { const d = new Date(); d.setDate(d.getDate() + shift); return d.toLocaleDateString('en-CA'); };
 
 router.get('/', async (req, res, next) => {
   try {
     const userId = req.userId;
     const date = req.query.date || isoDay();
-    const sevenDaysAgo = new Date(`${date}T12:00:00`); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-    const rangeStart = sevenDaysAgo.toISOString().slice(0, 10);
-    const [user, today, recentLogs, todayWorkouts, allWorkouts] = await Promise.all([
+    const rangeStart = isoDay(-6);
+    const priorStart = isoDay(-13);
+    const [user, today, recentLogs, priorLogs, todayWorkouts, recentWorkouts, priorWorkouts] = await Promise.all([
       User.findById(userId),
       DailyLog.findOneAndUpdate({ userId, date }, { $setOnInsert: { userId, date } }, { new: true, upsert: true }),
       DailyLog.find({ userId, date: { $gte: rangeStart, $lte: date } }).sort({ date: 1 }),
+      DailyLog.find({ userId, date: { $gte: priorStart, $lt: rangeStart } }).sort({ date: 1 }),
       WorkoutSession.find({ userId, date }),
-      WorkoutSession.find({ userId, date: { $gte: rangeStart, $lte: date } })
+      WorkoutSession.find({ userId, date: { $gte: rangeStart, $lte: date } }),
+      WorkoutSession.find({ userId, date: { $gte: priorStart, $lt: rangeStart } })
     ]);
     const targets = {
-      proteinTarget: user?.proteinTarget || 130,
-      calorieTarget: user?.calorieTarget || 2400,
+      proteinTarget: user?.proteinTarget || 50,
+      calorieTarget: user?.calorieTarget || 900,
       cardioTargetMinutes: user?.cardioTargetMinutes || 20
     };
+    const todayNutrition = nutritionFor(today);
     const totals = recentLogs.reduce((acc, log) => ({ eggs: acc.eggs + log.eggs, dahiBowls: acc.dahiBowls + log.dahiBowls }), { eggs: 0, dahiBowls: 0 });
     const logByDate = Object.fromEntries(recentLogs.map((log) => [log.date, log]));
-    const workoutsByDate = allWorkouts.reduce((acc, workout) => ({ ...acc, [workout.date]: [...(acc[workout.date] || []), workout] }), {});
+    const workoutsByDate = recentWorkouts.reduce((acc, workout) => ({ ...acc, [workout.date]: [...(acc[workout.date] || []), workout] }), {});
     const weekly = Array.from({ length: 7 }, (_, i) => {
       const day = new Date(`${rangeStart}T12:00:00`); day.setDate(day.getDate() + i); const id = day.toISOString().slice(0, 10);
-      const log = logByDate[id] || { eggs: 0, dahiBowls: 0, waterGlasses: 0 };
+      const log = logByDate[id] || { eggs: 0, dahiBowls: 0 };
       const dayWorkouts = workoutsByDate[id] || [];
       return {
         date: id,
         label: day.toLocaleDateString('en', { weekday: 'short' }),
-        eggs: log.eggs, dahiBowls: log.dahiBowls, waterGlasses: log.waterGlasses, bodyweight: log.bodyweight,
+        eggs: log.eggs, dahiBowls: log.dahiBowls,
         protein: nutritionFor(log).protein,
         calories: nutritionFor(log).calories,
         workedOut: dayWorkouts.length > 0,
@@ -58,12 +61,54 @@ router.get('/', async (req, res, next) => {
       }
       return streak;
     })();
+
+    const counts = recentWorkouts.reduce((acc, w) => ({ ...acc, [w.type]: (acc[w.type] || 0) + 1 }), {});
+    const trace = [...recentWorkouts, ...priorWorkouts];
+    const weekVolume = recentWorkouts.reduce((t, w) => t + (w.totalVolume || volumeFor(w.exerciseLogs)), 0);
+    const priorVolume = priorWorkouts.reduce((t, w) => t + (w.totalVolume || volumeFor(w.exerciseLogs)), 0);
+    const trend = priorVolume > 0
+      ? { dir: weekVolume >= priorVolume ? 'up' : 'down', pct: Math.abs(Math.round(((weekVolume - priorVolume) / priorVolume) * 100)) }
+      : { dir: 'flat', pct: 0 };
+
+    const sunday = new Date(`${date}T12:00:00`).getDay() === 0;
+    const trainedToday = todayWorkouts.some((w) => w.type !== 'cardio');
+    const cardioToday = todayWorkouts.some((w) => w.type === 'cardio');
+    const fueled = today.eggs > 0 || today.dahiBowls > 0;
+
+    const pushCount = counts.push || 0;
+    const pullCount = counts.pull || 0;
+    const cardioCount = (counts.cardio || 0);
+    let focus;
+    if (sunday) focus = 'Sunday protocol — Pushups are the only lift on the menu.';
+    else if (pushCount === 0 && pullCount === 0 && weekVolume === 0) focus = 'A clean slate. Start with a Push day and set the tone for the week.';
+    else if (pushCount === 0 && pullCount === 0) focus = 'Neither Push nor Pull logged this week — pick one today and get moving.';
+    else if (pushCount < pullCount) focus = `${cardioCount > 0 ? 'Cardio handled. ' : ''}Push is behind this week (${pushCount} vs ${pullCount} pull) — load the bench today.`;
+    else if (pullCount < pushCount) focus = `${cardioCount > 0 ? 'Cardio handled. ' : ''}Pull is behind this week (${pullCount} vs ${pushCount} push) — back and biceps day.`;
+    else focus = `${cardioCount > 0 ? 'Cardio handled. ' : ''}Even split of ${pushCount} push and ${pullCount} pull this week — keep the balance.`;
+
+    let tip;
+    if (!fueled && trace.length === 0) tip = 'Two eggs and a bowl of dahi is your foundation — log them first.';
+    else if (!fueled) tip = 'Nothing logged today yet. Start with eggs & curd, then choose Push or Pull.';
+    else if (todayNutrition.protein < targets.proteinTarget) tip = `${today.eggs} eggs + ${today.dahiBowls} bowl dahi = ${todayNutrition.protein}g protein (${targets.proteinTarget}g target). ${targets.proteinTarget - todayNutrition.protein}g left — one egg is 6g.`;
+    else if (!trainedToday) tip = 'Fuel is in. Now pick a plan and log each exercise one at a time.';
+    else if (weekVolume === 0) tip = 'Plan is checked in — first session of the week done. Recovery is earned.';
+    else if (trend.dir === 'up') tip = `Volume up ${trend.pct}% on last week — healthy progression. Beat it again next week.`;
+    else if (trend.dir === 'down') tip = `Volume ${trend.pct}% under last week — today is your best shot to even it out.`;
+    else tip = (pushCount || pullCount || cardioCount || fueled) ? 'Consistency beats intensity. Show up, log it, rest.' : 'Log any pillar — the coach starts advising from real data.';
+
     res.json({
-      today: { ...today.toObject(), ...targets, nutrition: nutritionFor(today) },
+      today: { ...today.toObject(), ...targets, nutrition: todayNutrition },
       workouts: todayWorkouts,
       weekly,
-      forecast: { eggs: Math.ceil(totals.eggs / 7 * 7), dahiBowls: Math.ceil(totals.dahiBowls / 7 * 7) },
+      forecast: { eggs: Math.ceil(totals.eggs), dahiBowls: Math.ceil(totals.dahiBowls) },
       streaks: { protein: proteinStreak, cardio: cardioStreak },
+      coach: {
+        pillars: { fuel: fueled, train: trainedToday, cardio: cardioToday },
+        counts: { push: pushCount, pull: pullCount, pushups: counts.pushups || 0, cardio: cardioCount, eggs: totals.eggs, dahiBowls: totals.dahiBowls },
+        focus,
+        trend,
+        tip
+      },
       user: { name: user?.name, email: user?.email }
     });
   } catch (error) { next(error); }

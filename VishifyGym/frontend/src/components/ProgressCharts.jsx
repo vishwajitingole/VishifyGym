@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Card } from './Card';
 
 const tooltipStyle = { background: '#151a23', border: '1px solid #2b3442', borderRadius: 12, fontSize: 12 };
@@ -8,12 +8,10 @@ export function ProgressCharts({ daily, exerciseMax }) {
   const [exerciseFocus, setExerciseFocus] = useState(null);
   const names = useMemo(() => Object.keys(exerciseMax || {}).slice(0, 6), [exerciseMax]);
 
-  const bodyweightSeries = useMemo(() => daily.filter((d) => d.bodyweight != null), [daily]);
-
   return (
     <>
       <div className="chart-grid">
-        <Card title="Nutrition rhythm" subtitle="Daily protein intake" className="chart-card">
+        <Card title="Nutrition rhythm" subtitle="Daily protein from eggs & curd" className="chart-card">
           <ResponsiveContainer width="100%" height={235}>
             <AreaChart data={daily}>
               <defs>
@@ -36,20 +34,20 @@ export function ProgressCharts({ daily, exerciseMax }) {
           </ResponsiveContainer>
         </Card>
 
-        <Card title="Bodyweight × calories" subtitle="Morning check-in overlay" className="chart-card">
+        <Card title="Eggs & curd" subtitle="Daily count of your two foundation foods" className="chart-card">
           <ResponsiveContainer width="100%" height={235}>
-            <LineChart data={bodyweightSeries}>
+            <BarChart data={daily}>
               <CartesianGrid stroke="#ffffff10" vertical={false} />
               <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#77818e', fontSize: 10 }} interval="preserveStartEnd" />
-              <YAxis hide domain={['dataMin - 1', 'dataMax + 1']} />
-              <Tooltip contentStyle={tooltipStyle} />
-              <Line type="monotone" dataKey="bodyweight" stroke="#71e6f4" strokeWidth={3} dot={false} activeDot={{ r: 5 }} />
-              <Line type="monotone" dataKey="calories" stroke="#f5c85a" strokeWidth={2} dot={false} strokeDasharray="4 4" />
-            </LineChart>
+              <YAxis hide allowDecimals={false} />
+              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: '#ffffff0a' }} />
+              <Bar dataKey="eggs" name="eggs" fill="#7CFF6B" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="dahiBowls" name="curd bowls" fill="#a992ff" radius={[4, 4, 0, 0]} />
+            </BarChart>
           </ResponsiveContainer>
           <div className="chart-key">
-            <span><i className="cyan" /> Bodyweight (kg)</span>
-            <span><i className="gold" /> Calories (kcal)</span>
+            <span><i className="green" /> Eggs</span>
+            <span><i className="purple" /> Dahi bowls</span>
           </div>
         </Card>
 

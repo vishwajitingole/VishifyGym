@@ -15,8 +15,6 @@ export const EXERCISE_SEED = [
   { name: 'Back Lat Pulldowns', category: 'pull' }
 ].map((exercise, index) => ({ ...exercise, order: index, isSeeded: true }));
 
-export const SEED_DEMO_DATA = (process.env.SEED_DEMO_DATA || 'true') === 'true';
-
 export const NUTRITION = {
   egg: { protein: 6, calories: 72 },
   dahiBowl: { protein: 11, calories: 180 }

@@ -6,7 +6,7 @@ import { nutritionFor, volumeFor } from '../utils/metrics.js';
 
 const router = Router();
 
-const isoDay = (d) => d.toISOString().slice(0, 10);
+const isoDay = (d) => d.toLocaleDateString('en-CA');
 const addDays = (date, amount) => { const d = new Date(`${date}T12:00:00`); d.setDate(d.getDate() + amount); return d; };
 
 router.get('/', async (req, res, next) => {
@@ -20,21 +20,20 @@ router.get('/', async (req, res, next) => {
       DailyLog.find({ userId, date: { $gte: rangeStart, $lte: date } }).sort({ date: 1 }),
       WorkoutSession.find({ userId, date: { $gte: rangeStart, $lte: date } })
     ]);
-    const proteinTarget = user?.proteinTarget || 130;
+    const proteinTarget = user?.proteinTarget || 50;
     const cardioTarget = user?.cardioTargetMinutes || 20;
     const logByDate = Object.fromEntries(logs.map((log) => [log.date, log]));
     const sessionsByDate = {}; sessions.forEach((session) => (sessionsByDate[session.date] = [...(sessionsByDate[session.date] || []), session]));
     const daily = Array.from({ length: days }, (_, i) => {
       const day = addDays(rangeStart, i); const id = isoDay(day);
-      const log = logByDate[id] || { eggs: 0, dahiBowls: 0, waterGlasses: 0 };
+      const log = logByDate[id] || { eggs: 0, dahiBowls: 0 };
       const daySessions = sessionsByDate[id] || [];
       const nutrition = nutritionFor(log);
-      const bodyweight = log.bodyweight || null;
       const volume = daySessions.reduce((total, session) => total + (session.totalVolume || volumeFor(session.exerciseLogs)), 0);
       return {
         date: id, label: day.toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' }),
-        eggs: log.eggs, dahiBowls: log.dahiBowls, waterGlasses: log.waterGlasses,
-        protein: nutrition.protein, calories: nutrition.calories, bodyweight,
+        eggs: log.eggs, dahiBowls: log.dahiBowls,
+        protein: nutrition.protein, calories: nutrition.calories,
         volume, workedOut: daySessions.length > 0,
         cardioMinutes: daySessions.filter((s) => s.type === 'cardio').reduce((t, s) => t + (s.durationMinutes || 0), 0)
       };
