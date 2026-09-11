@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Dumbbell } from 'lucide-react';
 import { useGym } from '../state/GymContext';
 import { request } from '../lib/api';
-import { SessionLauncher } from '../components/SessionLauncher';
+import { TodayPlan } from '../components/TodayPlan';
 import { CardioLogger } from '../components/CardioLogger';
 import { SundayPushupTracker } from '../components/SundayPushupTracker';
 
@@ -31,21 +31,22 @@ export function Training() {
         <Dumbbell />
         <div>
           <h2>{sunday ? 'Pushups only.' : 'Train with purpose.'}</h2>
-          <p>{sunday ? 'Today is for deliberate pushup volume and a new milestone.' : 'Pick a focused session; the past is already loaded into your plan.'}</p>
+          <p>{sunday ? 'Today is for deliberate pushup volume and a new milestone.' : 'One exercise at a time. Tap log, save, move on — until the plan is checked in.'}</p>
         </div>
       </section>
 
-      <div className="training-options">
-        {sunday ? (
-          <SessionLauncher type="pushups" />
-        ) : (
-          <>
-            <SessionLauncher type="push" />
-            <SessionLauncher type="pull" />
-            <SessionLauncher type="pushups" />
-          </>
-        )}
-      </div>
+      {sunday ? (
+        <TodayPlan
+          type="pushups"
+          title="Sunday pushups"
+          subtitle="Your weekly pushup protocol — one entry for the day"
+        />
+      ) : (
+        <div className="training-plans">
+          <TodayPlan type="push" title="Push day" subtitle="Chest, triceps, shoulders" />
+          <TodayPlan type="pull" title="Pull day" subtitle="Back and biceps" />
+        </div>
+      )}
 
       <div className="train-grid">
         <section className="card">
@@ -57,7 +58,7 @@ export function Training() {
 
       <div className="training-tip">
         <Dumbbell size={16} />
-        <span>Tip: <b>Dips</b> can be logged any time during a Push session — even during warm-ups, right from the session sheet.</span>
+        <span>Tip: <b>Dips</b> can be logged any time during a Push day — even during warm-ups, right from the plan card.</span>
       </div>
     </main>
   );

@@ -1,4 +1,5 @@
 import { CloudOff, Dumbbell, Flame, Loader2, Sparkles, Target, Trophy, Waves } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useGym } from '../state/GymContext';
 import { dateLabel } from '../data';
 import { RingGauge } from '../components/RingGauge';
@@ -9,6 +10,7 @@ import { ConsistencyCalendar } from '../components/ConsistencyCalendar';
 import { RecoveryMap } from '../components/RecoveryMap';
 import { GroceryForecast } from '../components/GroceryForecast';
 import { SessionLauncher } from '../components/SessionLauncher';
+import { QuickPlanStatus } from '../components/QuickPlanStatus';
 
 export function Overview() {
   const { dashboard, offline, syncing, pending } = useGym();
@@ -45,6 +47,8 @@ export function Overview() {
         </div>
       </section>
 
+      <QuickPlanStatus />
+
       <NutritionActions />
 
       <BodyweightCard />
@@ -58,7 +62,7 @@ export function Overview() {
         <div>
           <span className="eyebrow">TRAINING PLAN</span>
           <h2>{isSunday ? 'Sunday pushup focus' : 'What are we training?'}</h2>
-          <p>{isSunday ? 'The only scheduled movement today: Pushups.' : 'Start a focused session. Your last numbers are ready.'}</p>
+          <p>{isSunday ? 'The only scheduled movement today: Pushups.' : 'Start a focused plan — log one exercise at a time. Your last numbers are ready.'}</p>
         </div>
         <div className="workout-buttons">
           {isSunday ? <SessionLauncher type="pushups" /> : <><SessionLauncher type="push" /><SessionLauncher type="pull" /></>}
@@ -75,6 +79,8 @@ export function Overview() {
           <RecoveryMap workouts={workouts} />
         </div>
       </div>
+
+      <Link to="/logs" className="home-logs-link"><Trophy size={14} /> Review every workout, meal, and weigh-in in your log book →</Link>
     </main>
   );
 }

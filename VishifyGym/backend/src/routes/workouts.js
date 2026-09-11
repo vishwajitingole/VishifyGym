@@ -1,14 +1,49 @@
 import { Router } from 'express';
+import Exercise from '../models/Exercise.js';
 import WorkoutSession from '../models/WorkoutSession.js';
 import User from '../models/User.js';
 import { maxRepsFor, maxWeightFor, suggestProgression, volumeFor } from '../utils/metrics.js';
 
 const router = Router();
+const isoDay = () => new Date().toISOString().slice(0, 10);
 
 const typeRecord = (session, previous, current) => ({
   broke: current > previous && current > 0,
   previous: Math.round(previous * 100) / 100,
   current: Math.round(current * 100) / 100
+});
+
+router.get('/plan/:type', async (req, res, next) => {
+  try {
+    const userId = req.userId;
+    const date = req.query.date || isoDay();
+    const type = req.params.type;
+    const sessionType = ['push', 'pull', 'pushups'].includes(type) ? type : 'push';
+    const [session, allSessions] = await Promise.all([
+      WorkoutSession.findOne({ userId, date, type: sessionType }),
+      WorkoutSession.find({ userId }).sort({ date: -1, createdAt: -1 })
+    ]);
+    const exerciseList = sessionType === 'pushups'
+      ? await Exercise.find({ userId, name: 'Pushups', active: true }).sort({ order: 1 })
+      : await Exercise.find({ userId, category: sessionType, name: { $ne: 'Pushups' }, active: true }).sort({ order: 1 });
+    const loggedByName = Object.fromEntries((session?.exerciseLogs || []).map((e) => [e.exerciseName, e]));
+    const exercises = exerciseList.map((ex) => {
+      const name = ex.name;
+      const todayEntry = loggedByName[name];
+      let last = todayEntry
+        ? { date, sets: todayEntry.sets }
+        : null;
+      if (!last) {
+        for (const s of allSessions) {
+          const entry = s.exerciseLogs.find((e) => e.exerciseName === name);
+          if (entry) { last = { date: s.date, sets: entry.sets }; break; }
+        }
+      }
+      const suggested = last ? suggestProgression(last) : null;
+      return { _id: ex._id, exerciseName: name, category: ex.category, order: ex.order, last, suggested };
+    });
+    res.json({ date, type: sessionType, logged: session?.exerciseLogs || [], exercises });
+  } catch (error) { next(error); }
 });
 
 router.get('/last/:type', async (req, res, next) => {
@@ -24,12 +59,100 @@ router.get('/last/:type', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+router.get('/today/:type', async (req, res, next) => {
+  try {
+    const date = req.query.date || isoDay();
+    const session = await WorkoutSession.findOne({ userId: req.userId, date, type: req.params.type });
+    res.json({ date, session });
+  } catch (error) { next(error); }
+});
+
+router.get('/exercise/:name', async (req, res, next) => {
+  try {
+    const name = req.params.name;
+    const session = await WorkoutSession.findOne({ userId: req.userId, 'exerciseLogs.exerciseName': name }).sort({ date: -1, createdAt: -1 });
+    const entry = session?.exerciseLogs?.find((e) => e.exerciseName === name) || null;
+    const suggested = entry ? suggestProgression(entry) : null;
+    res.json({ last: entry && session ? { date: session.date, exerciseName: entry.exerciseName, sets: entry.sets } : null, suggested });
+  } catch (error) { next(error); }
+});
+
 router.get('/', async (req, res, next) => {
   try {
     const query = { userId: req.userId };
     if (req.query.from || req.query.to) query.date = { ...(req.query.from && { $gte: req.query.from }), ...(req.query.to && { $lte: req.query.to }) };
     if (req.query.type) query.type = req.query.type;
-    res.json(await WorkoutSession.find(query).sort({ date: -1, createdAt: -1 }));
+    if (req.query.exercise) query['exerciseLogs.exerciseName'] = req.query.exercise;
+    let sessions = await WorkoutSession.find(query).sort({ date: -1, createdAt: -1 });
+    if (req.query.limit) sessions = sessions.slice(0, Number(req.query.limit));
+    res.json(sessions);
+  } catch (error) { next(error); }
+});
+
+router.post('/exercise', async (req, res, next) => {
+  try {
+    const userId = req.userId;
+    const { date, type, exerciseName, exercise, sets } = req.body || {};
+    if (!exerciseName) return res.status(400).json({ message: 'exerciseName is required.' });
+    const sessionType = ['push', 'pull', 'pushups'].includes(type) ? type : 'push';
+    const day = Date.parse(date) ? date : isoDay();
+    if (new Date(`${day}T12:00:00`).getDay() === 0 && (sessionType === 'push' || sessionType === 'pull')) {
+      return res.status(422).json({ message: 'Sunday is reserved strictly for Pushups.' });
+    }
+    const cleanSets = (sets || [])
+      .map((set) => ({
+        reps: Math.max(0, Math.round(Number(set?.reps) || 0)),
+        weight: Math.max(0, Number(set?.weight) || 0),
+        completed: (Number(set?.reps) || 0) > 0
+      }))
+      .filter((set) => set.reps > 0);
+    const entry = {
+      ...(exercise ? { exercise } : {}),
+      exerciseName,
+      sets: cleanSets,
+      maxReps: maxRepsFor({ sets: cleanSets }),
+      volume: cleanSets.reduce((sum, set) => sum + set.reps * set.weight, 0),
+      supersetWith: null
+    };
+
+    const todaySession = await WorkoutSession.findOne({ userId, date: day, type: sessionType });
+    let session;
+    if (todaySession) {
+      todaySession.exerciseLogs = [...todaySession.exerciseLogs.filter((e) => e.exerciseName !== exerciseName), entry];
+      todaySession.totalVolume = volumeFor(todaySession.exerciseLogs);
+      session = await todaySession.save();
+    } else {
+      session = await WorkoutSession.create({ userId, date: day, type: sessionType, exerciseLogs: [entry], totalVolume: entry.volume });
+    }
+
+    const previous = await WorkoutSession.find({ userId, 'exerciseLogs.exerciseName': exerciseName });
+    let prevWeight = 0;
+    let prevReps = 0;
+    previous.forEach((s) => s.exerciseLogs.forEach((e) => {
+      if (e.exerciseName !== exerciseName) return;
+      if (s.date === day && s.type === sessionType) return;
+      prevWeight = Math.max(prevWeight, maxWeightFor(e));
+      prevReps = Math.max(prevReps, maxRepsFor(e));
+    }));
+    const personalRecords = [];
+    if (maxWeightFor(entry) > prevWeight) personalRecords.push({ exercise: exerciseName, metric: 'weight', value: maxWeightFor(entry) });
+    if (maxRepsFor(entry) > prevReps) personalRecords.push({ exercise: exerciseName, metric: 'reps', value: maxRepsFor(entry) });
+
+    const records = {};
+    if (!todaySession) {
+      const prior = await WorkoutSession.find({ userId, type: sessionType, date: { $ne: day } });
+      const previousBest = prior.reduce((max, s) => Math.max(max, s.totalVolume || volumeFor(s.exerciseLogs)), 0);
+      records.volumeRecord = typeRecord(session, previousBest, session.totalVolume || 0);
+    }
+    if (sessionType === 'pushups') {
+      const pushupEntry = session.exerciseLogs.find((e) => e.exerciseName === 'Pushups') || { sets: [] };
+      const reps = pushupEntry.sets.reduce((total, set) => total + (set.completed === false ? 0 : set.reps || 0), 0);
+      const prior = await WorkoutSession.find({ userId, type: 'pushups', date: { $ne: day } });
+      const previousBest = prior.reduce((max, s) => Math.max(max, (s.exerciseLogs.find((e) => e.exerciseName === 'Pushups')?.sets || []).reduce((t, set) => t + (set.completed === false ? 0 : set.reps || 0), 0)), 0);
+      records.pushupRecord = { ...typeRecord(session, previousBest, reps), reps };
+    }
+
+    res.status(201).json({ session, personalRecords, ...records });
   } catch (error) { next(error); }
 });
 

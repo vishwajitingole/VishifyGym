@@ -7,6 +7,7 @@ import dailyLogs from './routes/dailyLogs.js';
 import dashboard from './routes/dashboard.js';
 import exercises from './routes/exercises.js';
 import exportRouter from './routes/export.js';
+import logs from './routes/logs.js';
 import progress from './routes/progress.js';
 import workouts from './routes/workouts.js';
 import { requireAuth } from './utils/auth.js';
@@ -33,6 +34,7 @@ app.use('/api/daily-logs', requireAuth, dailyLogs);
 app.use('/api/workouts', requireAuth, workouts);
 app.use('/api/dashboard', requireAuth, dashboard);
 app.use('/api/progress', requireAuth, progress);
+app.use('/api/logs', requireAuth, logs);
 app.use('/api/export', requireAuth, exportRouter);
 
 app.use((error, _req, res, _next) => {

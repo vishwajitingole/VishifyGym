@@ -1,281 +1,312 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, ChevronLeft, ChevronRight, Dumbbell, History, Minus, Plus, SkipForward, X, Zap } from 'lucide-react';
+import { Check, ChevronRight, History, Loader2, Minus, PartyPopper, Plus, X, Zap } from 'lucide-react';
 import { useGym } from '../state/GymContext';
 import { queue, request } from '../lib/api';
 import { Celebration } from './Celebration';
 
 const number = (value) => new Intl.NumberFormat('en-IN').format(Math.round(value || 0));
-const isSuperset = (name) => name === 'Close Grip EZ Barbell Curls' || name === 'Seated Preacher Curls';
-const weightStepFor = (value) => (Number(value) || 0) >= 20 ? 2.5 : 1.25;
 const formatWeight = (value) => (Math.round((Number(value) || 0) * 100) / 100).toFixed(Number(value) % 1 ? 1 : 0);
+const weightStepFor = (value) => (Number(value) || 0) >= 20 ? 2.5 : 1.25;
+const blankSets = () => [{ reps: '', weight: '' }, { reps: '' }];
+const typeTitle = { push: 'Push', pull: 'Pull', pushups: 'Pushups' };
+const draftKey = (type, name, date) => `vishify-exercise-draft-${type}-${name}-${date}`;
 
-const blankSets = () => [
-  { reps: '', weight: '' },
-  { reps: '' }
-];
-
-const typeTitle = { push: 'Push session', pull: 'Pull session', pushups: 'Pushup milestone' };
-const draftKey = (type, date) => `vishify-session-${type}-${date}`;
-
-const loadDraft = (type, date) => {
-  try {
-    const raw = localStorage.getItem(draftKey(type, date));
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
+const lastTextFor = (sets) => {
+  const worth = (sets || []).filter((s) => Number(s.reps) > 0);
+  if (!worth.length) return null;
+  return worth.map((s) => {
+    const weight = Number(s.weight) || 0;
+    const reps = Number(s.reps) || 0;
+    return weight > 0 ? `${formatWeight(weight)} kg × ${reps}` : `${reps} rep${reps > 1 ? 's' : ''}`;
+  }).join('  ·  ');
 };
 
-const saveDraft = (type, date, data) => {
-  try { localStorage.setItem(draftKey(type, date), JSON.stringify(data)); } catch { /* storage full */ }
-};
-
-const clearDraft = (type, date) => {
-  try { localStorage.removeItem(draftKey(type, date)); } catch { /* ignore */ }
-};
-
-function Stepper({ value, onChange, step, min = 0, max = 250, disabled }) {
-  const val = Number(value) || 0;
+function Stepper({ value, onChange, step, min = 0, max = 300, disabled }) {
   const clamp = (v) => Math.min(max, Math.max(min, Math.round(v * 100) / 100));
   return (
     <div className={`stepper ${disabled ? 'disabled' : ''}`}>
-      <button type="button" disabled={disabled} onClick={() => onChange(String(clamp(val - step)))} aria-label="Decrease"><Minus size={13} /></button>
+      <button type="button" disabled={disabled} onClick={() => onChange(String(clamp((Number(value) || 0) - step)))} aria-label="Decrease"><Minus size={13} /></button>
       <input inputMode="decimal" value={value} onChange={(e) => onChange(e.target.value)} placeholder="—" />
-      <button type="button" disabled={disabled} onClick={() => onChange(String(clamp(val + step)))} aria-label="Increase"><Plus size={13} /></button>
+      <button type="button" disabled={disabled} onClick={() => onChange(String(clamp((Number(value) || 0) + step)))} aria-label="Increase"><Plus size={13} /></button>
     </div>
   );
 }
 
-export function WorkoutSheet({ type, close }) {
+export function WorkoutSheet({ type, startWith, close }) {
   const { exercises, dashboard, refresh } = useGym();
   const today = dashboard.today.date;
-  const [index, setIndex] = useState(() => loadDraft(type, today)?.index || 0);
-  const [saving, setSaving] = useState(false);
-  const [suggestion, setSuggestion] = useState({});
-  const [lastSession, setLastSession] = useState(null);
-  const [celebration, setCelebration] = useState(null);
 
-  const current = useMemo(() => {
-    const base = (type === 'pushups'
-      ? exercises.filter((e) => e.name === 'Pushups')
-      : exercises.filter((e) => e.category === type && e.name !== 'Dips')
-    ).map((exercise) => ({ _id: exercise._id, exerciseName: exercise.name }));
-    return type === 'push' ? [...base, { _id: 'dips', exerciseName: 'Dips' }] : base;
+  const plan = useMemo(() => {
+    if (type === 'pushups') return [{ _id: 'pushups', exerciseName: 'Pushups' }];
+    return exercises.filter((e) => e.category === type && e.name !== 'Pushups').map((e) => ({ _id: e._id, exerciseName: e.name }));
   }, [exercises, type]);
 
-  const [logs, setLogs] = useState(() => {
-    const draft = loadDraft(type, today);
-    if (draft?.logs?.length) return draft.logs;
-    return current.map((exercise) => ({ exercise: exercise._id, exerciseName: exercise.exerciseName, sets: blankSets() }));
-  });
-
-  const persist = (nextLogs, nextIndex = index) => saveDraft(type, today, { logs: nextLogs, index: nextIndex });
+  const [logged, setLogged] = useState([]);
+  const [queue, setQueue] = useState([]);
+  const [index, setIndex] = useState(0);
+  const [current, setCurrent] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const [savedFlash, setSavedFlash] = useState(false);
+  const [celebration, setCelebration] = useState(null);
+  const [allDone, setAllDone] = useState(false);
 
   useEffect(() => {
-    request(`/workouts/last/${type}`).then((response) => {
-      const last = response?.session;
-      setSuggestion(response?.suggested || {});
-      setLastSession(last);
-      if (!last || loadDraft(type, today)) return;
-      setLogs(current.map((exercise) => {
-        const previous = last.exerciseLogs?.find((entry) => entry.exerciseName === exercise.exerciseName);
-        if (previous) {
-          const target = Math.max(previous.sets.length, blankSets().length);
-          return {
-            exercise: exercise._id,
-            exerciseName: exercise.exerciseName,
-            sets: [...previous.sets.map((set) => ({ reps: set.reps, weight: set.weight })), ...Array.from({ length: Math.max(0, target - previous.sets.length) }, () => ({ reps: '', weight: '' }))]
-          };
-        }
-        return { exercise: exercise._id, exerciseName: exercise.exerciseName, sets: blankSets() };
-      }));
-    }).catch(() => {});
-    // The exercise selection is intentionally captured when this sheet opens.
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await request(`/workouts/today/${type}?date=${today}`);
+        if (!mounted) return;
+        const entries = res.session?.exerciseLogs || [];
+        const names = entries.map((e) => e.exerciseName);
+        setLogged(entries);
+        let pending = plan.filter((p) => !names.includes(p.exerciseName));
+        if (startWith) pending = [...pending.filter((p) => p.exerciseName === startWith), ...pending.filter((p) => p.exerciseName !== startWith)];
+        if (!pending.length) setAllDone(true);
+        else { setQueue(pending); setIndex(0); }
+        setLoading(false);
+      } catch {
+        if (!mounted) return;
+        setLoading(false);
+        setError('Could not load your plan. Check your connection.');
+      }
+    })();
+    return () => { mounted = false; };
+    // The plan is captured when the sheet opens; this intentionally does not depend on `exercises` updates.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [type]);
+  }, []);
 
-  const lastEntryFor = (name) => lastSession?.exerciseLogs?.find((entry) => entry.exerciseName === name) || null;
+  const active = queue[index];
 
-  const lastSetsText = (entry) => {
-    if (!entry?.sets?.length) return null;
-    const worthLogging = entry.sets.filter((set) => Number(set.reps) > 0);
-    if (!worthLogging.length) return null;
-    return worthLogging.map((set) => {
-      const weight = Number(set.weight) || 0;
-      const reps = Number(set.reps) || 0;
-      return weight > 0 ? `${weight} kg × ${reps}` : `${reps} rep${reps > 1 ? 's' : ''}`;
-    }).join('  ·  ');
+  useEffect(() => {
+    if (!active) return;
+    let mounted = true;
+    setCurrent(null);
+    setLoading(true);
+    const dKey = draftKey(type, active.exerciseName, today);
+    request(`/workouts/exercise/${encodeURIComponent(active.exerciseName)}`)
+      .then(({ last, suggested }) => {
+        if (!mounted) return;
+        const draft = JSON.parse(localStorage.getItem(dKey) || 'null');
+        setCurrent({
+          ...active,
+          last,
+          suggested,
+          sets: draft?.sets
+            ?? (last?.sets?.length ? [...last.sets.map((s) => ({ reps: String(s.reps), weight: String(s.weight) }))] : blankSets())
+        });
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setCurrent({ ...active, last: null, suggested: null, sets: blankSets() });
+        setLoading(false);
+      });
+    return () => { mounted = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active?.exerciseName]);
+
+  const persistDraft = (sets) => {
+    if (!active) return;
+    try { localStorage.setItem(draftKey(type, active.exerciseName, today), JSON.stringify({ sets })); } catch { /* ignore */ }
   };
 
-  const isDone = (i) => i < index || logs[i].sets.some((set) => Number(set.reps) > 0);
-  const active = logs[index];
-  const volume = logs.reduce((total, log) => total + log.sets.reduce((sum, set) => sum + (+set.reps || 0) * (+set.weight || 0), 0), 0);
-
-  const change = (setIndex, key, value) => {
-    const next = logs.map((entry, i) => i === index ? { ...entry, sets: entry.sets.map((set, j) => j === setIndex ? { ...set, [key]: value } : set) } : entry);
-    setLogs(next);
-    persist(next);
+  const setSet = (setIndex, key, value) => {
+    if (!current) return;
+    const next = current.sets.map((set, j) => (j === setIndex ? { ...set, [key]: value } : set));
+    setCurrent({ ...current, sets: next });
+    persistDraft(next);
   };
 
   const addSet = () => {
-    const next = logs.map((entry, i) => i === index ? { ...entry, sets: [...entry.sets, { reps: '', weight: '' }] } : entry);
-    setLogs(next);
-    persist(next);
+    if (!current) return;
+    const next = [...current.sets, { reps: '', weight: '' }];
+    setCurrent({ ...current, sets: next });
+    persistDraft(next);
   };
 
   const applySuggestion = () => {
-    const proposed = suggestion[active.exerciseName];
-    if (!proposed) return;
-    const next = logs.map((entry, i) => i === index
-      ? { ...entry, sets: entry.sets.map((set) => proposed.weight === 0 ? { ...set, reps: proposed.reps, weight: '' } : { ...set, reps: proposed.reps, weight: proposed.weight }) }
-      : entry);
-    setLogs(next);
-    persist(next);
+    if (!current?.suggested) return;
+    const next = current.sets.map((set) => current.suggested.weight === 0
+      ? { ...set, reps: String(current.suggested.reps), weight: '' }
+      : { ...set, reps: String(current.suggested.reps), weight: String(current.suggested.weight) });
+    setCurrent({ ...current, sets: next });
+    persistDraft(next);
   };
 
-  const goTo = (nextIndex) => {
-    const clamped = Math.min(current.length - 1, Math.max(0, nextIndex));
-    setIndex(clamped);
-    persist(logs, clamped);
+  const advance = (extraLogged = []) => {
+    const remaining = queue.filter((p, i) => i !== index && !extraLogged.includes(p.exerciseName));
+    if (!remaining.length) {
+      setQueue([]);
+      setAllDone(true);
+      return;
+    }
+    setQueue(remaining);
+    setIndex(0);
   };
 
-  const submit = async () => {
+  const save = async () => {
+    if (!current) return;
+    setError(null);
     setSaving(true);
-    const payload = {
-      date: dashboard.today.date,
-      type,
-      exerciseLogs: logs
-    };
+    const payload = { date: today, type, exerciseName: current.exerciseName, exercise: current._id || undefined, sets: current.sets };
+    const operation = { path: '/workouts/exercise', options: { method: 'POST', body: JSON.stringify(payload) } };
     try {
-      const result = await request('/workouts', { method: 'POST', body: JSON.stringify(payload) });
-      clearDraft(type, today);
+      const result = await request(operation.path, operation.options);
+      try { localStorage.removeItem(draftKey(type, current.exerciseName, today)); } catch { /* ignore */ }
       await refresh();
+      const extraLogged = (result.session?.exerciseLogs || []).map((e) => e.exerciseName);
+      setLogged((prev) => [...prev.filter((e) => !extraLogged.includes(e.exerciseName)), ...(result.session?.exerciseLogs || [])]);
       const records = result.personalRecords || [];
-      if (records.length) {
-        setCelebration({
-          title: 'New personal best!',
-          message: `${records[0].exercise}: ${records[0].value} ${records[0].metric === 'reps' ? 'reps' : 'kg'} — you just beat your previous max.`,
-          colors: ['#7CFF6B', '#f5c85a', '#71e6f4']
-        });
-      } else if (result.volumeRecord?.broke) {
-        setCelebration({
-          title: 'Session volume record!',
-          message: `${number(result.volumeRecord.current)} kg moved — ${number(result.volumeRecord.current - result.volumeRecord.previous)} kg more than your best session.`,
-          colors: ['#a992ff', '#f5c85a', '#ffffff']
-        });
-      } else if (result.pushupRecord?.broke) {
-        setCelebration({
-          title: 'Pushup milestone!',
-          message: `${result.pushupRecord.reps} reps this Sunday — a new weekly record.`,
-          colors: ['#7CFF6B', '#ffffff']
-        });
-      } else if (result.cardioRecord?.hitTarget) {
-        setCelebration({
-          title: 'Cardio goal hit!',
-          message: `${result.cardioRecord.current} minutes logged — cleared the ${result.cardioRecord.target} minute daily target.`,
-          colors: ['#71e6f4', '#7CFF6B', '#ffffff']
-        });
+      const celebration = records.length
+        ? { title: 'New personal best!', message: `${records[0].exercise}: ${records[0].value} ${records[0].metric === 'reps' ? 'reps' : 'kg'} — you just beat your previous max.`, colors: ['#7CFF6B', '#f5c85a', '#71e6f4'] }
+        : result.volumeRecord?.broke
+          ? { title: 'Volume record for the day!', message: `${number(result.volumeRecord.current)} kg moved in this session — a new best.`, colors: ['#a992ff', '#f5c85a', '#ffffff'] }
+          : result.pushupRecord?.broke
+            ? { title: 'Pushup milestone!', message: `${result.pushupRecord.reps} reps this Sunday — a new weekly record.`, colors: ['#7CFF6B', '#ffffff'] }
+            : null;
+      if (celebration) {
+        setCelebration(celebration);
+        advance(extraLogged);
       } else {
-        close();
+        setSavedFlash(true);
+        setTimeout(() => setSavedFlash(false), 1400);
+        advance(extraLogged);
       }
-    } catch {
-      clearDraft(type, today);
-      queue({ path: '/workouts', options: { method: 'POST', body: JSON.stringify(payload) } });
-      close();
-    } finally {
-      setSaving(false);
+    } catch (err) {
+      if (!navigator.onLine) {
+        queue(operation);
+        try { localStorage.removeItem(draftKey(type, current.exerciseName, today)); } catch { /* ignore */ }
+        setSavedFlash(true);
+        setTimeout(() => setSavedFlash(false), 1400);
+        advance([current.exerciseName]);
+      } else {
+        setSaving(false);
+        setError(err?.message || 'Could not save. Please retry.');
+      }
     }
   };
 
-  const isLast = index === current.length - 1;
-  const proposed = suggestion[active.exerciseName];
-  const bodyweight = proposed?.weight === 0 || active.sets.every((s) => s.weight === 0 || s.weight === '');
-  const lastText = lastSetsText(lastEntryFor(active.exerciseName));
+  const volume = (current?.sets || []).reduce((sum, s) => sum + (+s.reps || 0) * (+s.weight || 0), 0);
+  const bodyweight = (() => {
+    if (current?.suggested?.weight === 0) return true;
+    const someWeight = (current?.sets || []).some((s) => Number(s.weight) > 0);
+    return !someWeight;
+  })();
+  const lastText = current ? lastTextFor(current?.last?.sets) : null;
+  const upcoming = queue.slice(index + 1, index + 4).map((p) => p.exerciseName);
 
   return (
     <div className="sheet-backdrop">
-      {celebration && <Celebration {...celebration} onClose={close} />}
+      {celebration && <Celebration {...celebration} onClose={() => setCelebration(null)} />}
       <section className="workout-sheet">
         <header>
           <div>
-            <span className="eyebrow">LOG AS YOU GO · {type === 'pushups' ? 'SUNDAY ONLY' : type[0].toUpperCase() + type.slice(1)}</span>
-            <h2>{typeTitle[type] || 'Session'}</h2>
+            <span className="eyebrow">LOG AS YOU GO · {typeTitle[type]?.toUpperCase()}</span>
+            <h2>{typeTitle[type]} session{allDone ? ' — complete' : ''}</h2>
           </div>
           <button className="icon-button" onClick={close}><X /></button>
         </header>
 
-        <div className="exercise-progress">
-          {current.map((exercise, i) => (
-            <button
-              key={exercise.exerciseName}
-              className={`dot ${i === index ? 'active' : ''} ${isDone(i) ? 'done' : ''}`}
-              onClick={() => goTo(i)}
-              title={exercise.exerciseName}
-              aria-label={`Jump to ${exercise.exerciseName}`}
-            >
-              {i < index || logs[i].sets.some((s) => Number(s.reps) > 0) ? <Check size={11} /> : i + 1}
-            </button>
-          ))}
-        </div>
-
-        <div className="workout-exercises">
-          {active && (
-            <div className={`exercise-entry current-exercise ${isSuperset(active.exerciseName) ? 'superset-running' : ''}`}>
-              <div className="exercise-title">
-                <b>{active.exerciseName}</b>
-                <small>Exercise {index + 1} of {current.length} · {isDone(index) ? 'logged' : 'tap to log'}</small>
-              </div>
-              {lastText && (
-                <div className="last-session-note">
-                  <History size={13} />
-                  <span>Last session: <b>{lastText}</b></span>
-                  <em>your numbers are prefilled — beat them today</em>
-                </div>
-              )}
-              {proposed && (
-                <button className="suggestion-chip" onClick={applySuggestion}>
-                  <Zap size={13} />
-                  <span>
-                    <b>{proposed.weight === 0 ? `${proposed.reps} reps` : `${formatWeight(proposed.weight)} kg × ${proposed.reps}`}</b>
-                    <small>{proposed.note}</small>
-                  </span>
-                  <em>Apply</em>
-                </button>
-              )}
-              <div className="sets-grid">
-                <span>SET</span>
-                <span>REPS</span>
-                <span>KG</span>
-                {active.sets.map((set, setIndex) => (
-                  <div className="set-row" key={setIndex}>
-                    <i>{setIndex + 1}</i>
-                    <Stepper value={set.reps} step={1} onChange={(v) => change(setIndex, 'reps', v)} />
-                    <Stepper value={set.weight} step={weightStepFor(set.weight)} disabled={bodyweight} onChange={(v) => change(setIndex, 'weight', v)} />
+        {allDone ? (
+          <div className="sheet-done">
+            <span className="done-icon"><PartyPopper size={26} /></span>
+            <h3>Today's {typeTitle[type].toLowerCase()} is fully logged.</h3>
+            <p>Every exercise is checked in for today. Come back tomorrow — or close this and go get stronger.</p>
+            {logged.length > 0 && (
+              <div className="done-summary">
+                {logged.map((entry) => (
+                  <div key={entry.exerciseName}>
+                    <b><Check size={13} /> {entry.exerciseName}</b>
+                    <span>{lastTextFor(entry.sets) || '—'}</span>
                   </div>
                 ))}
               </div>
-              <button className="add-set" onClick={addSet}><Plus size={13} /> Add another set</button>
-            </div>
-          )}
-        </div>
-
-        <footer>
-          <div className="volume-chip">
-            <small>LIVE VOLUME</small>
-            <strong>{number(volume)} kg</strong>
-          </div>
-          <div className="sheet-actions">
-            {index > 0 && <button className="nav-back" onClick={() => goTo(index - 1)}><ChevronLeft size={16} /> Back</button>}
-            {!isLast ? (
-              <>
-                <button className="skip-exercise" onClick={() => goTo(index + 1)}><SkipForward size={14} /> Skip</button>
-                <button className="save-workout" onClick={() => goTo(index + 1)}>Done · Next <ChevronRight size={16} /></button>
-              </>
-            ) : (
-              <button className="save-workout" disabled={saving} onClick={submit}>
-                {saving ? 'Saving...' : <><Check size={18} /> Complete session</>}
-              </button>
             )}
+            <button className="save-workout" onClick={close}>Close <ChevronRight size={16} /></button>
           </div>
-        </footer>
+        ) : loading || !active ? (
+          <div className="sheet-loading"><Loader2 className="spin" size={20} /> Loading your log…</div>
+        ) : error && !current ? (
+          <div className="sheet-error">
+            <b>{error}</b>
+            <button className="save-workout" onClick={close}>Close</button>
+          </div>
+        ) : current && (
+          <>
+            <div className="exercise-progress">
+              {plan.map((exercise, i) => (
+                <button
+                  key={exercise.exerciseName}
+                  className={`dot ${active.exerciseName === exercise.exerciseName ? 'active' : ''} ${logged.some((e) => e.exerciseName === exercise.exerciseName) ? 'done' : ''}`}
+                  onClick={() => { if (!logged.some((e) => e.exerciseName === exercise.exerciseName)) { setIndex(queue.findIndex((p) => p.exerciseName === exercise.exerciseName)); } }}
+                  title={exercise.exerciseName}
+                  aria-label={exercise.exerciseName}
+                >
+                  {logged.some((e) => e.exerciseName === exercise.exerciseName) ? <Check size={11} /> : plan.findIndex((p) => p.exerciseName === exercise.exerciseName) + 1}
+                </button>
+              ))}
+            </div>
+
+            <div className="workout-exercises">
+              <div className="exercise-entry current-exercise">
+                <div className="exercise-title">
+                  <b>{current.exerciseName}</b>
+                  <small>{logged.some((e) => e.exerciseName === current.exerciseName) ? <><Check size={11} /> already logged today</> : <>tap to log · still open</>}</small>
+                </div>
+
+                {lastText && (
+                  <div className="last-session-note">
+                    <History size={13} />
+                    <span>Last time{current.last?.date ? ` (${new Date(`${current.last.date}T12:00:00`).toLocaleDateString('en', { day: 'numeric', month: 'short' })})` : ''}: <b>{lastText}</b></span>
+                    <em>{current?.suggested ? 'your numbers are prefilled — beat them' : 'your numbers are prefilled — beat them'}</em>
+                  </div>
+                )}
+
+                {current.suggested && (
+                  <button className="suggestion-chip" onClick={applySuggestion}>
+                    <Zap size={13} />
+                    <span>
+                      <b>{current.suggested.weight === 0 ? `${current.suggested.reps} reps` : `${formatWeight(current.suggested.weight)} kg × ${current.suggested.reps}`}</b>
+                      <small>{current.suggested.note}</small>
+                    </span>
+                    <em>Apply</em>
+                  </button>
+                )}
+
+                <div className="sets-grid">
+                  <span>SET</span>
+                  <span>REPS</span>
+                  <span>KG</span>
+                  {current.sets.map((set, setIndex) => (
+                    <div className="set-row" key={setIndex}>
+                      <i>{setIndex + 1}</i>
+                      <Stepper value={set.reps} step={1} onChange={(v) => setSet(setIndex, 'reps', v)} />
+                      <Stepper value={set.weight} step={weightStepFor(set.weight)} disabled={bodyweight} onChange={(v) => setSet(setIndex, 'weight', v)} />
+                    </div>
+                  ))}
+                </div>
+                <button className="add-set" onClick={addSet}><Plus size={13} /> Add another set</button>
+
+                {error && <p className="sheet-error-inline">{error}</p>}
+              </div>
+            </div>
+
+            <footer>
+              <div className="volume-chip">
+                <small>{savedFlash ? 'SAVED' : 'VOLUME'}</small>
+                <strong>{savedFlash ? '✓ Logged' : `${number(volume)} kg`}</strong>
+              </div>
+              <div className="sheet-actions">
+                {upcoming.length > 0 && <span className="volume-chip upcoming-hint">next: {upcoming.join(', ')}{queue.slice(index + 4).length ? ` +${queue.slice(index + 4).length} more` : ''}</span>}
+                <button className="save-workout" disabled={saving} onClick={save}>
+                  {saving ? <><Loader2 className="spin" size={16} /> Saving…</> : <>Done · Next <ChevronRight size={16} /></>}
+                </button>
+              </div>
+            </footer>
+          </>
+        )}
       </section>
     </div>
   );
