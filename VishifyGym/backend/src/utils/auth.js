@@ -1,10 +1,9 @@
 import jwt from 'jsonwebtoken';
 
 const SECRET = process.env.JWT_SECRET || 'vishify-gym-secret-change-me';
-const EXPIRES = '7d';
 
 export function signToken(user) {
-  return jwt.sign({ sub: user._id, name: user.name }, SECRET, { expiresIn: EXPIRES });
+  return jwt.sign({ sub: user._id, name: user.name }, SECRET);
 }
 
 export function requireAuth(req, res, next) {
