@@ -219,8 +219,20 @@ export function GymProvider({ children }) {
     }
   };
 
+  const reorderExercises = useCallback(async (category, orderedIds) => {
+    try {
+      const updated = await request('/exercises/reorder', { method: 'PUT', body: JSON.stringify({ category, order: orderedIds }) });
+      setExercises(updated);
+      try { localStorage.setItem(`vishify-exercises-${user?._id || 'anon'}`, JSON.stringify(updated)); } catch { /* ignore */ }
+      return updated;
+    } catch {
+      await refresh();
+      return null;
+    }
+  }, [refresh, user]);
+
   const value = useMemo(
-    () => ({ user, login, register, logout, authenticating, authError, dashboard, exercises, offline, syncing, pending: readQueue().length, quickAdd, updateToday, editExercise, refresh }),
+    () => ({ user, login, register, logout, authenticating, authError, dashboard, exercises, offline, syncing, pending: readQueue().length, quickAdd, updateToday, editExercise, reorderExercises, refresh }),
     [user, login, register, logout, authenticating, authError, dashboard, exercises, offline, syncing]
   );
   return <GymContext.Provider value={value}>{children}</GymContext.Provider>;

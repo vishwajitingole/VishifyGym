@@ -3,6 +3,25 @@ import Exercise from '../models/Exercise.js';
 
 const router = Router();
 
+router.put('/reorder', async (req, res, next) => {
+  try {
+    const { category, order } = req.body;
+    if (!['cardio', 'push', 'pull'].includes(category) || !Array.isArray(order)) {
+      return res.status(400).json({ message: 'category and an ordered array of exercise ids are required.' });
+    }
+    const exercises = await Exercise.find({ userId: req.userId, category });
+    const byId = new Map(exercises.map((exercise) => [String(exercise._id), exercise]));
+    const ordered = order.filter((id) => byId.has(String(id)));
+    const rest = exercises.filter((exercise) => !ordered.includes(String(exercise._id))).sort((a, b) => (a.order || 0) - (b.order || 0));
+    const sequence = [...ordered, ...rest.map((exercise) => String(exercise._id))];
+    const ops = sequence.map((id, i) => ({
+      updateOne: { filter: { _id: id, userId: req.userId, category }, update: { $set: { order: i } } }
+    }));
+    if (ops.length) await Exercise.bulkWrite(ops);
+    res.json(await Exercise.find({ userId: req.userId }).sort({ category: 1, order: 1, name: 1 }));
+  } catch (error) { next(error); }
+});
+
 router.get('/', async (req, res, next) => {
   try { res.json(await Exercise.find({ userId: req.userId }).sort({ category: 1, order: 1, name: 1 })); } catch (error) { next(error); }
 });

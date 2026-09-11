@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { ArrowDownToLine, CirclePlus, Dumbbell, Flame, LogOut, Target, X, Activity } from 'lucide-react';
+import { ArrowDownToLine, ChevronDown, ChevronUp, CirclePlus, Dumbbell, Flame, LogOut, Target, X, Activity } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useGym } from '../state/GymContext';
 import { Card } from '../components/Card';
 import { API_BASE, getToken } from '../lib/api';
 
 export function Settings() {
-  const { exercises, editExercise, user, logout } = useGym();
+  const { exercises, editExercise, reorderExercises, user, logout } = useGym();
   const [name, setName] = useState('');
   const [category, setCategory] = useState('push');
   const [filter, setFilter] = useState('all');
@@ -25,6 +25,18 @@ export function Settings() {
     editExercise('remove', exercise);
     setJustRemoved(exercise.name);
     setTimeout(() => setJustRemoved(null), 2200);
+  };
+
+  const move = async (id, direction) => {
+    const target = exercises.find((e) => e._id === id);
+    if (!target) return;
+    const sameCategory = exercises.filter((e) => e.category === target.category);
+    const from = sameCategory.findIndex((e) => e._id === id);
+    const to = from + direction;
+    if (to < 0 || to >= sameCategory.length) return;
+    const next = [...sameCategory];
+    [next[from], next[to]] = [next[to], next[from]];
+    await reorderExercises(target.category, next.map((e) => e._id));
   };
 
   const download = async () => {
@@ -64,7 +76,7 @@ export function Settings() {
 
       {justRemoved && <div className="toast-inline"><span /> {justRemoved} removed from your routine.</div>}
 
-      <Card title="Exercise library" subtitle="Your exact routine, editable whenever it changes">
+      <Card title="Exercise library" subtitle="Reorder the sequence with ↑/↓ — it controls your plan order">
         <div className="filter-tabs">
           {['all', 'cardio', 'push', 'pull'].map((item) => (
             <button className={filter === item ? 'selected' : ''} onClick={() => setFilter(item)} key={item}>{item}</button>
@@ -73,8 +85,15 @@ export function Settings() {
         <div className="exercise-list">
           {displayed.map((exercise) => (
             <div className="exercise-item" key={exercise._id}>
+              <span className="exercise-order">{exercises.filter((e) => e.category === exercise.category).findIndex((e) => e._id === exercise._id) + 1}</span>
               <span className={`category-icon ${exercise.category}`}><Dumbbell size={15} /></span>
               <div><b>{exercise.name}</b><small>{exercise.category}{exercise.isSeeded ? ' · seeded' : ''}</small></div>
+              {filter !== 'all' && (
+                <div className="move-exercise">
+                  <button onClick={() => move(exercise._id, -1)} aria-label="Move up"><ChevronUp size={15} /></button>
+                  <button onClick={() => move(exercise._id, 1)} aria-label="Move down"><ChevronDown size={15} /></button>
+                </div>
+              )}
               <button className="remove-exercise" onClick={() => remove(exercise)} aria-label={`Remove ${exercise.name}`}><X size={16} /></button>
             </div>
           ))}

@@ -507,6 +507,11 @@ button:disabled { opacity: .6; cursor: progress; }
 .exercise-item small { color: #7d8891; text-transform: capitalize; font: 9px 'DM Mono'; margin-top: 2px; }
 .remove-exercise { color: #7f8991; border: 0; background: transparent; padding: 4px; border-radius: 7px; transition: .2s; }
 .remove-exercise:hover { color: #ff877f; background: #ff6b6b14; transform: scale(1.1); }
+.exercise-order { min-width: 15px; text-align: center; color: #7d8891; font: 9px 'DM Mono'; }
+.move-exercise { display: flex; flex-direction: column; gap: 2px; }
+.move-exercise button { color: #7f8991; border: 0; background: transparent; padding: 2px 4px; border-radius: 6px; line-height: 1; transition: .2s; }
+.move-exercise button:hover:not(:disabled) { color: #71e6f4; background: #71e6f419; }
+.move-exercise button:disabled { opacity: .25; cursor: not-allowed; }
 .add-exercise { display: grid; grid-template-columns: 1fr 100px auto; gap: 8px; margin-top: 13px; padding-top: 13px; border-top: 1px solid #ffffff0c; }
 .add-exercise button { border: 1px dashed #7CFF6B58; color: #aaff9c; background: #7CFF6B0b; border-radius: 9px; padding: 8px 10px; font-size: 10px; font-weight: 700; display: flex; gap: 4px; align-items: center; transition: .2s; }
 .add-exercise button:hover { background: #7CFF6B18; }
