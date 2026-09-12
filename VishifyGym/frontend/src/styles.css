@@ -830,18 +830,31 @@ button:disabled { opacity: .6; cursor: progress; }
 
 /* ============ YEAR HEATMAP ============ */
 .heatmap { overflow-x: auto; padding-bottom: 4px; }
-.heatmap-months { display: flex; gap: 0; height: 16px; font: 9px 'DM Mono'; color: #7d8892; margin-bottom: 6px; }
-.heatmap-months span { position: relative; flex-shrink: 0; }
-.heatmap-grid { display: flex; gap: 3px; width: max-content; }
-.heatmap-column { display: flex; flex-direction: column; gap: 3px; }
-.heatmap-cell { width: 11px; height: 11px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
-.heatmap-cell.none { opacity: 0; }
+.heatmap-month-blocks { display: flex; gap: 18px; width: max-content; }
+.heatmap-month { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.heatmap-month + .heatmap-month { border-left: 1px solid #ffffff18; padding-left: 18px; }
+.heatmap-month-grid { display: flex; gap: 4px; }
+.heatmap-month-label { font: 9px 'DM Mono'; color: #7d8892; height: 14px; }
+.heatmap-column { display: flex; flex-direction: column; gap: 4px; }
+.heatmap-cell { width: 12px; height: 12px; border-radius: 3px; display: inline-block; flex-shrink: 0; cursor: pointer; }
+.heatmap-cell.none { opacity: 0; cursor: default; }
 .heatmap-cell.level-0 { background: #ffffff0c; }
 .heatmap-cell.level-1 { background: #7CFF6B33; }
 .heatmap-cell.level-2 { background: #7CFF6B77; }
 .heatmap-cell.level-3 { background: #7CFF6B; box-shadow: 0 0 6px #7CFF6B55; }
-.heatmap-legend { display: flex; align-items: center; gap: 4px; margin-top: 10px; justify-content: flex-end; color: #7d8892; font: 9px 'DM Mono'; }
-.heatmap-legend .heatmap-cell { width: 10px; height: 10px; }
+.heatmap-legend { display: flex; align-items: center; gap: 4px; margin: 10px 6px 0 0; justify-content: flex-end; color: #7d8892; font: 9px 'DM Mono'; }
+.heatmap-legend .heatmap-cell { width: 11px; height: 11px; cursor: default; }
+.heatmap-tooltip { position: fixed; z-index: 80; transform: translate(-60%, -135%); pointer-events: none; background: #191f2a; border: 1px solid #3a4658; border-radius: 10px; padding: 8px 12px; box-shadow: 0 10px 30px -8px #000; white-space: nowrap; text-align: center; }
+.heatmap-tooltip.flip { transform: translate(-90%, -135%); }
+.heatmap-tooltip.below { transform: translate(-60%, 18px); }
+.heatmap-tooltip.flip.below { transform: translate(-90%, 18px); }
+.heatmap-tooltip b { display: block; font-size: 11px; margin-bottom: 2px; }
+.heatmap-tooltip span { font: 9px 'DM Mono'; color: #9da5aa; display: inline-flex; align-items: center; gap: 6px; }
+.heatmap-tooltip span::before { content: ''; width: 8px; height: 8px; border-radius: 2px; }
+.heatmap-tooltip.level-1 span::before { background: #7CFF6B33; }
+.heatmap-tooltip.level-2 span::before { background: #7CFF6B77; }
+.heatmap-tooltip.level-3 span::before { background: #7CFF6B; }
+.heatmap-tooltip.level-0 span::before { background: #ffffff0c; }
 
 /* ============ REST TIMER ============ */
 .rest-backdrop { position: fixed; inset: 0; background: #0a0d12cc; backdrop-filter: blur(6px); z-index: 60; display: grid; place-items: center; }
