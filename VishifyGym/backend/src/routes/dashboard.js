@@ -75,11 +75,63 @@ router.get('/', async (req, res, next) => {
     const cardioToday = todayWorkouts.some((w) => w.type === 'cardio');
     const fueled = today.eggs > 0 || today.dahiBowls > 0;
 
+    const schedule = user?.schedule || {};
+    const dayOfWeek = new Date(`${date}T12:00:00`).getDay();
+    const scheduled = sunday ? null : schedule[String(dayOfWeek)] || null;
+
+    const weekStartDate = new Date(`${date}T12:00:00`);
+    weekStartDate.setDate(weekStartDate.getDate() - ((weekStartDate.getDay() + 6) % 7));
+    const weekStartId = weekStartDate.toLocaleDateString('en-CA');
+    const weekWorkouts = recentWorkouts.filter((w) => w.date >= weekStartId);
+    const weekLogs = recentLogs.filter((l) => l.date >= weekStartId);
+    const weekTypeByDate = Object.fromEntries(weekWorkouts.map((w) => [w.date, w.type]));
+
+    const daysSinceMonday = Math.round((new Date(`${date}T12:00:00`) - weekStartDate) / 86400000);
+    let missed = null;
+    if (!sunday) {
+      for (let i = 0; i < daysSinceMonday; i++) {
+        const d = new Date(weekStartDate); d.setDate(d.getDate() + i);
+        const id = d.toLocaleDateString('en-CA');
+        const typ = schedule[String(d.getDay())];
+        if ((typ === 'push' || typ === 'pull') && weekTypeByDate[id] !== typ) { missed = { dateLabel: d.toLocaleDateString('en', { weekday: 'long' }), type: typ }; break; }
+      }
+    }
+
+    const missionTargets = { sessions: 3, fuelDays: 5, cardioMinutes: targets.cardioTargetMinutes * 3 };
+    const missionProgress = {
+      sessions: weekWorkouts.filter((w) => w.type !== 'cardio').length,
+      fuelDays: weekLogs.filter((l) => l.eggs > 0 || l.dahiBowls > 0).length,
+      cardioMinutes: weekWorkouts.filter((w) => w.type === 'cardio').reduce((t, w) => t + (w.durationMinutes || 0), 0)
+    };
+    const missionDone = Object.keys(missionTargets).every((k) => missionProgress[k] >= missionTargets[k]);
+    const missionPercent = Math.round(100
+      * (Math.min(missionProgress.sessions, missionTargets.sessions) / missionTargets.sessions
+        + Math.min(missionProgress.fuelDays, missionTargets.fuelDays) / missionTargets.fuelDays
+        + Math.min(missionProgress.cardioMinutes, missionTargets.cardioMinutes) / missionTargets.cardioMinutes) / 3);
+    const mission = { weekStart: weekStartId, targets: missionTargets, progress: missionProgress, percent: missionPercent, done: missionDone };
+
+    const avgProtein = weekly.reduce((t, d) => t + d.protein, 0) / weekly.length;
+    const avgCalories = weekly.reduce((t, d) => t + d.calories, 0) / weekly.length;
+    const avgCardio = weekly.reduce((t, d) => t + d.cardioMinutes, 0) / weekly.length;
+    const activeDays = weekly.filter((d) => d.protein > 0 || d.cardioMinutes > 0 || d.workedOut).length;
+    const adaptive = activeDays >= 3
+      ? {
+          protein: Math.max(25, Math.round((avgProtein * 1.1 + 2) / 5) * 5),
+          calories: Math.max(300, Math.round((avgCalories * 1.1 + 30) / 50) * 50),
+          cardio: Math.max(10, Math.round(avgCardio * 1.1 + 1))
+        }
+      : null;
+
     const pushCount = counts.push || 0;
     const pullCount = counts.pull || 0;
     const cardioCount = (counts.cardio || 0);
+    const scheduledName = (s) => (s === 'push' ? 'Push' : 'Pull');
     let focus;
     if (sunday) focus = 'Sunday protocol — Pushups are the only lift on the menu.';
+    else if (scheduled === 'rest' && !trainedToday && !cardioToday) focus = 'Rest day on your schedule — recovery builds the muscle. Keep eggs & curd in and take the load off.';
+    else if (scheduled === 'rest') focus = 'Rest day on your schedule — you trained anyway. Extra credit; now recover hard.';
+    else if (scheduled && (scheduled === 'push' ? pushCount === 0 : pullCount === 0)) focus = `Today is your ${scheduledName(scheduled)} day — the plan is queued. Log each exercise as you finish it.`;
+    else if (missed) focus = `You skipped ${scheduledName(missed.type)} on ${missed.dateLabel} — the plan is still open. Catch it today.`;
     else if (pushCount === 0 && pullCount === 0 && weekVolume === 0) focus = 'A clean slate. Start with a Push day and set the tone for the week.';
     else if (pushCount === 0 && pullCount === 0) focus = 'Neither Push nor Pull logged this week — pick one today and get moving.';
     else if (pushCount < pullCount) focus = `${cardioCount > 0 ? 'Cardio handled. ' : ''}Push is behind this week (${pushCount} vs ${pullCount} pull) — load the bench today.`;
@@ -100,6 +152,7 @@ router.get('/', async (req, res, next) => {
       today: { ...today.toObject(), ...targets, nutrition: todayNutrition },
       workouts: todayWorkouts,
       weekly,
+      mission,
       forecast: { eggs: Math.ceil(totals.eggs), dahiBowls: Math.ceil(totals.dahiBowls) },
       streaks: { protein: proteinStreak, cardio: cardioStreak },
       coach: {
@@ -107,7 +160,10 @@ router.get('/', async (req, res, next) => {
         counts: { push: pushCount, pull: pullCount, pushups: counts.pushups || 0, cardio: cardioCount, eggs: totals.eggs, dahiBowls: totals.dahiBowls },
         focus,
         trend,
-        tip
+        tip,
+        schedule,
+        scheduled,
+        adaptive
       },
       user: { name: user?.name, email: user?.email }
     });

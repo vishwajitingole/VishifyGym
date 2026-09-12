@@ -1,8 +1,27 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, ChevronRight, History, Loader2, Minus, PartyPopper, Plus, X, Zap } from 'lucide-react';
+import { Check, ChevronRight, HeartPulse, History, Loader2, Minus, PartyPopper, Plus, X, Zap } from 'lucide-react';
 import { useGym } from '../state/GymContext';
 import { queue, request } from '../lib/api';
 import { Celebration } from './Celebration';
+
+const chime = () => {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    [0, 0.2, 0.4].forEach((offset) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime + offset);
+      gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + offset + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + offset + 0.15);
+      osc.start(ctx.currentTime + offset);
+      osc.stop(ctx.currentTime + offset + 0.16);
+    });
+  } catch { /* audio unavailable */ }
+};
 
 const number = (value) => new Intl.NumberFormat('en-IN').format(Math.round(value || 0));
 const formatWeight = (value) => (Math.round((Number(value) || 0) * 100) / 100).toFixed(Number(value) % 1 ? 1 : 0);
@@ -51,6 +70,18 @@ export function WorkoutSheet({ type, startWith, close }) {
   const [savedFlash, setSavedFlash] = useState(false);
   const [celebration, setCelebration] = useState(null);
   const [allDone, setAllDone] = useState(false);
+  const [resting, setResting] = useState(null);
+
+  useEffect(() => {
+    if (resting === null || resting <= 0) return;
+    const timer = setTimeout(() => {
+      setResting((r) => {
+        if (r <= 1) { chime(); return null; }
+        return r - 1;
+      });
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [resting]);
 
   useEffect(() => {
     let mounted = true;
@@ -135,6 +166,16 @@ export function WorkoutSheet({ type, startWith, close }) {
     persistDraft(next);
   };
 
+  const copyLast = () => {
+    if (!current?.last?.sets?.length) return;
+    const next = current.last.sets.map((set) => ({
+      reps: String(set.reps || ''),
+      weight: set.weight !== undefined && set.weight !== null && String(set.weight) !== '' ? String(set.weight) : ''
+    }));
+    setCurrent((c) => ({ ...c, sets: next }));
+    persistDraft(next);
+  };
+
   const advance = (extraLogged = []) => {
     const remaining = queue.filter((p, i) => i !== index && !extraLogged.includes(p.exerciseName));
     if (!remaining.length) {
@@ -166,14 +207,15 @@ export function WorkoutSheet({ type, startWith, close }) {
           : result.pushupRecord?.broke
             ? { title: 'Pushup milestone!', message: `${result.pushupRecord.reps} reps this Sunday — a new weekly record.`, colors: ['#7CFF6B', '#ffffff'] }
             : null;
+      const remaining = queue.filter((p, i) => i !== index && !extraLogged.includes(p.exerciseName));
       if (celebration) {
         setCelebration(celebration);
-        advance(extraLogged);
       } else {
         setSavedFlash(true);
         setTimeout(() => setSavedFlash(false), 1400);
-        advance(extraLogged);
+        if (remaining.length) setResting(90);
       }
+      advance(extraLogged);
     } catch (err) {
       if (!navigator.onLine) {
         queue(operation);
@@ -200,6 +242,17 @@ export function WorkoutSheet({ type, startWith, close }) {
   return (
     <div className="sheet-backdrop">
       {celebration && <Celebration {...celebration} onClose={() => setCelebration(null)} />}
+      {resting !== null && (
+        <div className="rest-backdrop">
+          <div className="rest-card">
+            <span className="rest-icon"><HeartPulse size={22} /></span>
+            <span className="eyebrow">RECOVERY</span>
+            <b>{resting}s</b>
+            <p>Rest between sets is part of the set. Breathe, sip water, come back fresh.</p>
+            <button onClick={() => setResting(null)}>Skip rest · continue <ChevronRight size={15} /></button>
+          </div>
+        </div>
+      )}
       <section className="workout-sheet">
         <header>
           <div>
@@ -260,8 +313,12 @@ export function WorkoutSheet({ type, startWith, close }) {
                   <div className="last-session-note">
                     <History size={13} />
                     <span>Last time{current.last?.date ? ` (${new Date(`${current.last.date}T12:00:00`).toLocaleDateString('en', { day: 'numeric', month: 'short' })})` : ''}: <b>{lastText}</b></span>
-                    <em>{current?.suggested ? 'your numbers are prefilled — beat them' : 'your numbers are prefilled — beat them'}</em>
+                    <em>{current?.suggested ? `${current.suggested.note}` : 'your numbers are prefilled — beat them'}</em>
                   </div>
+                )}
+
+                {current.last?.sets?.length > 0 && (
+                  <button className="copy-last" onClick={copyLast}><History size={12} /> Copy last time</button>
                 )}
 
                 {current.suggested && (

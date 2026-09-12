@@ -7,7 +7,8 @@ const userSchema = new mongoose.Schema({
   passwordHash: { type: String, required: true, select: false },
   proteinTarget: { type: Number, default: 50 },
   calorieTarget: { type: Number, default: 900 },
-  cardioTargetMinutes: { type: Number, default: 20 }
+  cardioTargetMinutes: { type: Number, default: 20 },
+  schedule: { type: mongoose.Schema.Types.Mixed, default: {} }
 }, { timestamps: true });
 
 userSchema.methods.comparePassword = function (candidate) {

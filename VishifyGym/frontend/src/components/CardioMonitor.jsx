@@ -7,14 +7,17 @@ export function CardioMonitor({ daily, cardio }) {
   const stats = cardio || { sessions: [], totalMinutes: 0, avgMinutes: 0, best: 0, target: 20 };
   const base = stats.target || 20;
   const sessions = (stats.sessions || []).slice().reverse().slice(-8).reverse();
+  const best = stats.best || 0;
+  const paced = (stats.sessions || []).filter((s) => s.speed > 0);
+  const topPace = paced.length ? Math.max(...paced.map((s) => s.speed)) : 0;
 
   return (
     <>
       <div className="progress-strip">
         <div className="progress-stat"><span>total cardio</span><b>{stats.totalMinutes} min</b></div>
         <div className="progress-stat"><span>avg / day</span><b>{stats.avgMinutes.toFixed(1)} min</b></div>
-        <div className="progress-stat"><span>best session</span><b>{stats.best} min</b></div>
-        <div className="progress-stat"><span>daily goal</span><b>{base} min</b></div>
+        <div className="progress-stat"><span>best session (PB)</span><b>{best} min</b></div>
+        <div className="progress-stat"><span>top pace</span><b>{topPace > 0 ? `${topPace.toFixed(1)} km/h` : '—'}</b></div>
       </div>
 
       <Card title="Cardio stamina" subtitle={`Minutes logged vs your ${base} min daily target`} className="chart-card wide-chart">
@@ -31,6 +34,7 @@ export function CardioMonitor({ daily, cardio }) {
             <YAxis hide />
             <Tooltip contentStyle={tooltipStyle} cursor={{ fill: '#ffffff0a' }} formatter={(value) => [`${value} min`, 'cardio']} />
             <ReferenceLine y={base} stroke="#7CFF6B" strokeDasharray="4 4" label={{ value: `${base} min goal`, fill: '#7CFF6B', fontSize: 9, position: 'insideTopRight' }} />
+            {best > 0 && <ReferenceLine y={best} stroke="#a992ff" strokeDasharray="6 3" label={{ value: `PB ${best}`, fill: '#a992ff', fontSize: 9, position: 'insideBottomRight' }} />}
             <Bar dataKey="cardioMinutes" fill="url(#cardioFill)" radius={[5, 5, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>

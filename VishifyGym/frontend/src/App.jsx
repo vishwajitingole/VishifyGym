@@ -7,6 +7,7 @@ import { Training } from './pages/Training';
 import { Logs } from './pages/Logs';
 import { Settings } from './pages/Settings';
 import { AuthScreen } from './pages/AuthScreen';
+import { CheckInNudge } from './components/CheckInNudge';
 
 const nav = [
   { to: '/', icon: Home, label: 'Today' },
@@ -20,6 +21,7 @@ function AppShell() {
   const { user, logout } = useGym();
   return (
     <div className="app-shell">
+      <CheckInNudge />
       <aside className="sidebar">
         <NavLink to="/" className="brand"><span><Dumbbell size={21} /></span><b>VISHIFY<em>GYM</em></b></NavLink>
         <nav>

@@ -5,6 +5,8 @@ import { TimeRange } from '../components/TimeRange';
 import { ProgressCharts } from '../components/ProgressCharts';
 import { PRBanner } from '../components/PRBanner';
 import { CardioMonitor } from '../components/CardioMonitor';
+import { YearHeatmap } from '../components/YearHeatmap';
+import { WeeklyReview } from '../components/WeeklyReview';
 
 const fallbackSeries = (days) => {
   const today = new Date().toLocaleDateString('en-CA');
@@ -65,7 +67,7 @@ export function Progress() {
         <div className="progress-stat"><span>cardio streak</span><b>{progress.streaks?.cardio || 0} days</b></div>
       </div>
 
-      <PRBanner records={recentPRs} />
+      <PRBanner records={recentPRs} exerciseMax={progress.exerciseMax || {}} />
 
       {loading ? (
         <div className="loading-panel"><span className="ring-loader" /> Crunching your numbers…</div>
@@ -83,6 +85,8 @@ export function Progress() {
               </div>
             </div>
           )}
+          <WeeklyReview today={dashboard.today.date} />
+          <YearHeatmap today={dashboard.today.date} />
         </>
       )}
     </main>

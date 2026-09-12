@@ -10,10 +10,12 @@ import { RecoveryMap } from '../components/RecoveryMap';
 import { GroceryForecast } from '../components/GroceryForecast';
 import { SessionLauncher } from '../components/SessionLauncher';
 import { QuickPlanStatus } from '../components/QuickPlanStatus';
+import { MissionCard } from '../components/MissionCard';
+import { AdaptiveSuggestion } from '../components/AdaptiveSuggestion';
 
 export function Overview() {
   const { dashboard, offline, syncing, pending } = useGym();
-  const { today, weekly, workouts, forecast, streaks, coach } = dashboard;
+  const { today, weekly, workouts, forecast, streaks, coach, mission } = dashboard;
   const isSunday = new Date(`${today.date}T12:00:00`).getDay() === 0;
   const proteinStreak = streaks?.protein ?? weekly.filter((d) => d.protein >= (today.proteinTarget || 50)).length;
 
@@ -33,6 +35,12 @@ export function Overview() {
       <TodayChecklist />
 
       <CoachNote coach={coach} />
+
+      <AdaptiveSuggestion />
+
+      <div className="mission-row">
+        <MissionCard mission={mission} />
+      </div>
 
       <FuelPanel />
 

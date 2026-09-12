@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowDownToLine, CheckCircle2, ChevronDown, ChevronUp, CirclePlus, Dumbbell, Flame, LogOut, Target, X, Activity } from 'lucide-react';
+import { ArrowDownToLine, Bell, CheckCircle2, ChevronDown, ChevronUp, CirclePlus, Dumbbell, Flame, LogOut, Target, X, Activity } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useGym } from '../state/GymContext';
 import { Card } from '../components/Card';
@@ -17,6 +17,51 @@ export function Settings() {
     cardioTargetMinutes: dashboard.today.cardioTargetMinutes ?? 20
   });
   const [savedTargets, setSavedTargets] = useState(false);
+  const [schedule, setSchedule] = useState(() => ({ ...(user?.schedule || {}) }));
+  const [scheduleSaved, setScheduleSaved] = useState(false);
+  const [nudges, setNudges] = useState(() => localStorage.getItem('vishify-nudge-enabled') === '1');
+
+  const DAYS = [
+    { id: 0, short: 'S', full: 'Sun' },
+    { id: 1, short: 'M', full: 'Mon' },
+    { id: 2, short: 'T', full: 'Tue' },
+    { id: 3, short: 'W', full: 'Wed' },
+    { id: 4, short: 'T', full: 'Thu' },
+    { id: 5, short: 'F', full: 'Fri' },
+    { id: 6, short: 'S', full: 'Sat' }
+  ];
+
+  const cycleDay = (dayId) => {
+    const key = String(dayId);
+    const current = schedule[key];
+    const nextType = current === 'push' ? 'pull' : current === 'pull' ? 'rest' : current === 'rest' ? undefined : 'push';
+    setSchedule((prev) => {
+      const copy = { ...prev };
+      if (nextType) copy[key] = nextType; else delete copy[key];
+      return copy;
+    });
+  };
+
+  const saveSchedule = async (event) => {
+    event.preventDefault();
+    const updated = await updateProfile({ schedule });
+    if (updated) {
+      setScheduleSaved(true);
+      setTimeout(() => setScheduleSaved(false), 2200);
+    }
+  };
+
+  const toggleNudges = (event) => {
+    const on = event.target.checked;
+    setNudges(on);
+    if (on) {
+      localStorage.setItem('vishify-nudge-enabled', '1');
+      if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+    } else {
+      localStorage.removeItem('vishify-nudge-enabled');
+      localStorage.removeItem('vishify-nudge-last');
+    }
+  };
 
   useEffect(() => {
     setTargets({
@@ -145,6 +190,28 @@ export function Settings() {
             <label><Activity /> Cardio<input type="number" value={targets.cardioTargetMinutes} onChange={(e) => setTargets({ ...targets, cardioTargetMinutes: e.target.value })} /></label>
             <button className={savedTargets ? 'target-saved' : ''}>{savedTargets ? <><CheckCircle2 size={15} /> Saved</> : 'Save targets'}</button>
           </form>
+        </Card>
+        <Card title="Weekly schedule" subtitle="The coach plans your week around these days — tap a day to cycle Push → Pull → Rest → Off">
+          <form className="schedule-form" onSubmit={saveSchedule}>
+            <div className="schedule-editor">
+              {DAYS.map((day) => {
+                const type = schedule[String(day.id)];
+                return (
+                  <button type="button" className={`schedule-day ${type || 'off'}`} onClick={() => cycleDay(day.id)} key={day.id} title={`${day.full} — tap to change`}>
+                    <span>{day.short}</span>
+                    <em>{type ? (type === 'rest' ? 'Rest' : type === 'push' ? 'Push' : 'Pull') : 'Off'}</em>
+                  </button>
+                );
+              })}
+            </div>
+            <button className={scheduleSaved ? 'target-saved' : ''}>{scheduleSaved ? <><CheckCircle2 size={15} /> Schedule saved</> : 'Save schedule'}</button>
+          </form>
+        </Card>
+        <Card title="Check-in reminders" subtitle="Gentle browser nudges when a pillar is still open">
+          <div className="nudge-setting">
+            <div><Bell size={15} /><span><b>Remind me to check in</b><small>While the app is open, get a nudge if fuel, training, or cardio is still pending.</small></span></div>
+            <label className="switch"><input type="checkbox" checked={nudges} onChange={toggleNudges} /><span /></label>
+          </div>
         </Card>
         <Card title="Offline sync" subtitle="Your logs go with you">
           <div className="privacy-note">

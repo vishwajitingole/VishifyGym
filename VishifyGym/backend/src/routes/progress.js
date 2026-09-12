@@ -65,4 +65,55 @@ router.get('/', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+router.get('/heatmap', async (req, res, next) => {
+  try {
+    const userId = req.userId;
+    const days = Math.min(Math.max(Number(req.query.days) || 365, 7), 365);
+    const date = req.query.date || isoDay(new Date());
+    const start = isoDay(addDays(date, -(days - 1)));
+    const sessions = await WorkoutSession.find({ userId, date: { $gte: start, $lte: date } });
+    const byDate = {};
+    sessions.forEach((session) => { byDate[session.date] = (byDate[session.date] || 0) + 1; });
+    const heatmap = [];
+    for (let i = 0; i < days; i++) { const id = isoDay(addDays(start, i)); heatmap.push({ date: id, count: byDate[id] || 0 }); }
+    res.json({ days, start, end: date, heatmap });
+  } catch (error) { next(error); }
+});
+
+router.get('/review', async (req, res, next) => {
+  try {
+    const userId = req.userId;
+    const date = req.query.date || isoDay(new Date());
+    const end = isoDay(addDays(date, -1));
+    const start = isoDay(addDays(end, -6));
+    const [logs, sessions] = await Promise.all([
+      DailyLog.find({ userId, date: { $gte: start, $lte: end } }).sort({ date: 1 }),
+      WorkoutSession.find({ userId, date: { $gte: start, $lte: end } }).sort({ date: 1 })
+    ]);
+    const totals = {
+      workouts: 0, push: 0, pull: 0, cardio: 0,
+      volume: sessions.reduce((t, s) => t + (s.totalVolume || volumeFor(s.exerciseLogs)), 0),
+      cardioMinutes: sessions.filter((s) => s.type === 'cardio').reduce((t, s) => t + (s.durationMinutes || 0), 0),
+      eggs: logs.reduce((t, l) => t + l.eggs, 0),
+      dahiBowls: logs.reduce((t, l) => t + l.dahiBowls, 0),
+      protein: logs.reduce((t, l) => t + nutritionFor(l).protein, 0)
+    };
+    sessions.forEach((s) => { if (s.type === 'cardio') totals.cardio++; else { totals.workouts++; totals[s.type] = (totals[s.type] || 0) + 1; } });
+    const ranked = sessions.slice().sort((a, b) => (b.totalVolume || 0) - (a.totalVolume || 0));
+    const topSession = ranked[0];
+    const prs = [];
+    ranked.forEach((session) => session.exerciseLogs.forEach((entry) => {
+      if (prs.length >= 3) return;
+      const best = entry.sets.reduce((m, set) => Math.max(m, set.weight || 0), 0);
+      if (best > 0) prs.push({ exercise: entry.exerciseName, value: best, date: session.date });
+    }));
+    res.json({
+      start, end,
+      totals,
+      prs,
+      topSession: topSession ? { date: topSession.date, type: topSession.type, volume: topSession.totalVolume || volumeFor(topSession.exerciseLogs), exerciseCount: (topSession.exerciseLogs || []).length } : null
+    });
+  } catch (error) { next(error); }
+});
+
 export default router;
