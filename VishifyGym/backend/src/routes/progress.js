@@ -16,9 +16,9 @@ router.get('/', async (req, res, next) => {
     const date = req.query.date || isoDay(new Date());
     const rangeStart = isoDay(addDays(date, -(days - 1)));
     const [user, logs, sessions] = await Promise.all([
-      User.findById(userId),
-      DailyLog.find({ userId, date: { $gte: rangeStart, $lte: date } }).sort({ date: 1 }),
-      WorkoutSession.find({ userId, date: { $gte: rangeStart, $lte: date } })
+      User.findById(userId).lean(),
+      DailyLog.find({ userId, date: { $gte: rangeStart, $lte: date } }).select('date eggs dahiBowls waterGlasses bodyweight notes').sort({ date: 1 }).lean(),
+      WorkoutSession.find({ userId, date: { $gte: rangeStart, $lte: date } }).select('date type durationMinutes speed totalVolume exerciseLogs').lean()
     ]);
     const proteinTarget = user?.proteinTarget || 50;
     const cardioTarget = user?.cardioTargetMinutes || 20;
@@ -26,13 +26,13 @@ router.get('/', async (req, res, next) => {
     const sessionsByDate = {}; sessions.forEach((session) => (sessionsByDate[session.date] = [...(sessionsByDate[session.date] || []), session]));
     const daily = Array.from({ length: days }, (_, i) => {
       const day = addDays(rangeStart, i); const id = isoDay(day);
-      const log = logByDate[id] || { eggs: 0, dahiBowls: 0 };
+      const log = logByDate[id] || { eggs: 0, dahiBowls: 0, waterGlasses: 0 };
       const daySessions = sessionsByDate[id] || [];
       const nutrition = nutritionFor(log);
       const volume = daySessions.reduce((total, session) => total + (session.totalVolume || volumeFor(session.exerciseLogs)), 0);
       return {
         date: id, label: day.toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' }),
-        eggs: log.eggs, dahiBowls: log.dahiBowls,
+        eggs: log.eggs, dahiBowls: log.dahiBowls, waterGlasses: log.waterGlasses || 0, bodyweight: log.bodyweight,
         protein: nutrition.protein, calories: nutrition.calories,
         volume, workedOut: daySessions.length > 0,
         cardioMinutes: daySessions.filter((s) => s.type === 'cardio').reduce((t, s) => t + (s.durationMinutes || 0), 0)
@@ -71,7 +71,7 @@ router.get('/heatmap', async (req, res, next) => {
     const days = Math.min(Math.max(Number(req.query.days) || 365, 7), 365);
     const date = req.query.date || isoDay(new Date());
     const start = isoDay(addDays(date, -(days - 1)));
-    const sessions = await WorkoutSession.find({ userId, date: { $gte: start, $lte: date } });
+    const sessions = await WorkoutSession.find({ userId, date: { $gte: start, $lte: date } }).select('date').lean();
     const byDate = {};
     sessions.forEach((session) => { byDate[session.date] = (byDate[session.date] || 0) + 1; });
     const heatmap = [];
@@ -87,8 +87,8 @@ router.get('/review', async (req, res, next) => {
     const end = isoDay(addDays(date, -1));
     const start = isoDay(addDays(end, -6));
     const [logs, sessions] = await Promise.all([
-      DailyLog.find({ userId, date: { $gte: start, $lte: end } }).sort({ date: 1 }),
-      WorkoutSession.find({ userId, date: { $gte: start, $lte: end } }).sort({ date: 1 })
+      DailyLog.find({ userId, date: { $gte: start, $lte: end } }).select('date eggs dahiBowls waterGlasses bodyweight notes').sort({ date: 1 }).lean(),
+      WorkoutSession.find({ userId, date: { $gte: start, $lte: end } }).select('date type durationMinutes speed totalVolume exerciseLogs').sort({ date: 1 }).lean()
     ]);
     const totals = {
       workouts: 0, push: 0, pull: 0, cardio: 0,
@@ -96,6 +96,7 @@ router.get('/review', async (req, res, next) => {
       cardioMinutes: sessions.filter((s) => s.type === 'cardio').reduce((t, s) => t + (s.durationMinutes || 0), 0),
       eggs: logs.reduce((t, l) => t + l.eggs, 0),
       dahiBowls: logs.reduce((t, l) => t + l.dahiBowls, 0),
+      waterGlasses: logs.reduce((t, l) => t + (l.waterGlasses || 0), 0),
       protein: logs.reduce((t, l) => t + nutritionFor(l).protein, 0)
     };
     sessions.forEach((s) => { if (s.type === 'cardio') totals.cardio++; else { totals.workouts++; totals[s.type] = (totals[s.type] || 0) + 1; } });

@@ -13,15 +13,21 @@ router.get('/', async (req, res, next) => {
     const date = req.query.date || isoDay();
     const rangeStart = isoDay(-6);
     const priorStart = isoDay(-13);
-    const [user, today, recentLogs, priorLogs, todayWorkouts, recentWorkouts, priorWorkouts] = await Promise.all([
-      User.findById(userId),
-      DailyLog.findOneAndUpdate({ userId, date }, { $setOnInsert: { userId, date } }, { new: true, upsert: true }),
-      DailyLog.find({ userId, date: { $gte: rangeStart, $lte: date } }).sort({ date: 1 }),
-      DailyLog.find({ userId, date: { $gte: priorStart, $lt: rangeStart } }).sort({ date: 1 }),
-      WorkoutSession.find({ userId, date }),
-      WorkoutSession.find({ userId, date: { $gte: rangeStart, $lte: date } }),
-      WorkoutSession.find({ userId, date: { $gte: priorStart, $lt: rangeStart } })
+    let [user, today, recentLogs, priorLogs, todayWorkouts, recentWorkouts, priorWorkouts] = await Promise.all([
+      User.findById(userId).lean(),
+      DailyLog.findOne({ userId, date }).lean(),
+      DailyLog.find({ userId, date: { $gte: rangeStart, $lte: date } }).select('date eggs dahiBowls waterGlasses bodyweight notes').sort({ date: 1 }).lean(),
+      DailyLog.find({ userId, date: { $gte: priorStart, $lt: rangeStart } }).select('date eggs dahiBowls waterGlasses bodyweight notes').sort({ date: 1 }).lean(),
+      WorkoutSession.find({ userId, date }).select('date type durationMinutes speed totalVolume exerciseLogs').lean(),
+      WorkoutSession.find({ userId, date: { $gte: rangeStart, $lte: date } }).select('date type durationMinutes speed totalVolume exerciseLogs').lean(),
+      WorkoutSession.find({ userId, date: { $gte: priorStart, $lt: rangeStart } }).select('date type durationMinutes speed totalVolume exerciseLogs').lean()
     ]);
+    if (!today) {
+      const created = await DailyLog.create({ userId, date });
+      today = { _id: created._id, userId, date, eggs: 0, dahiBowls: 0, waterGlasses: 0, bodyweight: null, notes: '' };
+    } else {
+      today = { ...today, waterGlasses: today.waterGlasses ?? 0, notes: today.notes ?? '' };
+    }
     const targets = {
       proteinTarget: user?.proteinTarget || 50,
       calorieTarget: user?.calorieTarget || 900,
@@ -33,12 +39,13 @@ router.get('/', async (req, res, next) => {
     const workoutsByDate = recentWorkouts.reduce((acc, workout) => ({ ...acc, [workout.date]: [...(acc[workout.date] || []), workout] }), {});
     const weekly = Array.from({ length: 7 }, (_, i) => {
       const day = new Date(`${rangeStart}T12:00:00`); day.setDate(day.getDate() + i); const id = day.toISOString().slice(0, 10);
-      const log = logByDate[id] || { eggs: 0, dahiBowls: 0 };
+      const log = logByDate[id] || { eggs: 0, dahiBowls: 0, waterGlasses: 0 };
       const dayWorkouts = workoutsByDate[id] || [];
       return {
         date: id,
         label: day.toLocaleDateString('en', { weekday: 'short' }),
-        eggs: log.eggs, dahiBowls: log.dahiBowls,
+        eggs: log.eggs, dahiBowls: log.dahiBowls, waterGlasses: log.waterGlasses || 0,
+        bodyweight: log.bodyweight,
         protein: nutritionFor(log).protein,
         calories: nutritionFor(log).calories,
         workedOut: dayWorkouts.length > 0,
@@ -73,7 +80,7 @@ router.get('/', async (req, res, next) => {
     const sunday = new Date(`${date}T12:00:00`).getDay() === 0;
     const trainedToday = todayWorkouts.some((w) => w.type !== 'cardio');
     const cardioToday = todayWorkouts.some((w) => w.type === 'cardio');
-    const fueled = today.eggs > 0 || today.dahiBowls > 0;
+    const fueled = todayNutrition.protein >= targets.proteinTarget;
 
     const schedule = user?.schedule || {};
     const dayOfWeek = new Date(`${date}T12:00:00`).getDay();
@@ -139,8 +146,7 @@ router.get('/', async (req, res, next) => {
     else focus = `${cardioCount > 0 ? 'Cardio handled. ' : ''}Even split of ${pushCount} push and ${pullCount} pull this week — keep the balance.`;
 
     let tip;
-    if (!fueled && trace.length === 0) tip = 'Two eggs and a bowl of dahi is your foundation — log them first.';
-    else if (!fueled) tip = 'Nothing logged today yet. Start with eggs & curd, then choose Push or Pull.';
+    if (todayNutrition.protein <= 0 && trace.length === 0) tip = 'Two eggs and a bowl of dahi is your foundation — log them first.';
     else if (todayNutrition.protein < targets.proteinTarget) tip = `${today.eggs} eggs + ${today.dahiBowls} bowl dahi = ${todayNutrition.protein}g protein (${targets.proteinTarget}g target). ${targets.proteinTarget - todayNutrition.protein}g left — one egg is 6g.`;
     else if (!trainedToday) tip = 'Fuel is in. Now pick a plan and log each exercise one at a time.';
     else if (weekVolume === 0) tip = 'Plan is checked in — first session of the week done. Recovery is earned.';
@@ -149,7 +155,7 @@ router.get('/', async (req, res, next) => {
     else tip = (pushCount || pullCount || cardioCount || fueled) ? 'Consistency beats intensity. Show up, log it, rest.' : 'Log any pillar — the coach starts advising from real data.';
 
     res.json({
-      today: { ...today.toObject(), ...targets, nutrition: todayNutrition },
+      today: { ...today, ...targets, nutrition: todayNutrition },
       workouts: todayWorkouts,
       weekly,
       mission,

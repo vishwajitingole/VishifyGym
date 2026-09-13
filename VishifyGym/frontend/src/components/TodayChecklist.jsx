@@ -39,8 +39,8 @@ export function TodayChecklist() {
       value: `${today.eggs || 0} eggs · ${today.dahiBowls || 0} curd · ${today.nutrition?.protein || 0}/${today.proteinTarget}g protein`,
       action: (
         <div className="checklist-actions">
-          <button className="checklist-add" onClick={() => quickAdd('egg')} disabled={fuelDone}><span>+1</span> Egg</button>
-          <button className="checklist-add curd" onClick={() => quickAdd('dahi')} disabled={fuelDone}><span>+1</span> Dahi</button>
+          <button className="checklist-add" onClick={() => quickAdd('egg')}><span>+1</span> Egg</button>
+          <button className="checklist-add curd" onClick={() => quickAdd('dahi')}><span>+1</span> Dahi</button>
         </div>
       )
     },

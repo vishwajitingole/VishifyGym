@@ -51,6 +51,24 @@ export function ProgressCharts({ daily, exerciseMax }) {
           </div>
         </Card>
 
+        <Card title="Water intake" subtitle="Glasses logged per day" className="chart-card">
+          <ResponsiveContainer width="100%" height={235}>
+            <BarChart data={daily}>
+              <defs>
+                <linearGradient id="waterFill" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0" stopColor="#71e6f4" stopOpacity="0.95" />
+                  <stop offset="1" stopColor="#319fca" stopOpacity="0.3" />
+                </linearGradient>
+              </defs>
+              <CartesianGrid stroke="#ffffff10" vertical={false} />
+              <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#77818e', fontSize: 10 }} interval="preserveStartEnd" />
+              <YAxis hide allowDecimals={false} />
+              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: '#ffffff0a' }} />
+              <Bar dataKey="waterGlasses" name="glasses" fill="url(#waterFill)" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+
         <Card title="Training volume" subtitle="Total weight lifted per day (sets × reps × kg)" className="chart-card wide-chart">
           <ResponsiveContainer width="100%" height={225}>
             <BarChart data={daily}>

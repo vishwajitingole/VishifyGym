@@ -178,13 +178,15 @@ export function GymProvider({ children }) {
   };
 
   const quickAdd = async (item) => {
-    const map = { egg: 'eggs', dahi: 'dahiBowls' };
+    const map = { egg: 'eggs', dahi: 'dahiBowls', water: 'waterGlasses', bottle: 'waterGlasses' };
     const property = map[item];
     const before = dashboard.today;
-    const nextCount = before[property] + 1;
-    const resultingProtein = (before.eggs + (item === 'egg' ? 1 : 0)) * NUTRITION.egg.protein + (before.dahiBowls + (item === 'dahi' ? 1 : 0)) * NUTRITION.dahiBowl.protein;
+    const increment = item === 'bottle' ? 4 : 1;
+    const nextCount = (before[property] || 0) + increment;
     await updateToday({ [property]: nextCount });
-    if (before.nutrition.protein < before.proteinTarget && resultingProtein >= before.proteinTarget) {
+    const targetHit = (item === 'egg' || item === 'dahi') && before.nutrition.protein < before.proteinTarget
+      && (before.eggs + (item === 'egg' ? 1 : 0)) * NUTRITION.egg.protein + (before.dahiBowls + (item === 'dahi' ? 1 : 0)) * NUTRITION.dahiBowl.protein >= before.proteinTarget;
+    if (targetHit) {
       confetti({
         particleCount: 160,
         spread: 85,

@@ -140,6 +140,7 @@ function DayCard({ day, targets, applied, exerciseOnly }) {
               <span><b>{calories}</b> kcal</span>
               <span>{log?.eggs || 0} eggs</span>
               <span>{log?.dahiBowls || 0} dahi bowls</span>
+              <span>{log?.waterGlasses || 0} glasses water</span>
             </>
           )}
         </div>

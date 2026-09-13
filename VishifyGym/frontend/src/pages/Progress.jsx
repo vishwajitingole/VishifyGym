@@ -19,6 +19,7 @@ const fallbackSeries = (days) => {
       label: d.toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' }),
       eggs: Math.round(1 + seed * 4),
       dahiBowls: Math.round(seed * 2),
+      waterGlasses: Math.round(3 + seed * 5),
       protein: Math.round(25 + seed * 45),
       calories: Math.round(300 + seed * 500),
       volume: i % 3 === 0 ? Math.round(1200 + seed * 2600) : 0,

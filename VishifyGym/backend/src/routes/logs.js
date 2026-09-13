@@ -22,9 +22,9 @@ router.get('/', async (req, res, next) => {
     if (req.query.exercise) sessionCondition['exerciseLogs.exerciseName'] = req.query.exercise;
 
     const [logs, sessions, user] = await Promise.all([
-      DailyLog.find(logCondition).sort({ date: 1 }),
-      WorkoutSession.find(sessionCondition).sort({ date: -1, createdAt: -1 }),
-      User.findById(userId)
+      DailyLog.find(logCondition).select('date eggs dahiBowls waterGlasses bodyweight notes').sort({ date: 1 }).lean(),
+      WorkoutSession.find(sessionCondition).select('date type durationMinutes speed totalVolume exerciseLogs').sort({ date: -1, createdAt: -1 }).lean(),
+      User.findById(userId).lean()
     ]);
 
     const days = new Map();
@@ -47,7 +47,8 @@ router.get('/', async (req, res, next) => {
         sessions: sessions.length,
         workouts: sessions.filter((s) => s.type !== 'cardio').length,
         cardioMinutes: sessions.filter((s) => s.type === 'cardio').reduce((total, s) => total + (s.durationMinutes || 0), 0),
-        volume: sessions.reduce((total, s) => total + (s.totalVolume || 0), 0)
+        volume: sessions.reduce((total, s) => total + (s.totalVolume || 0), 0),
+        waterGlasses: logs.reduce((total, l) => total + (l.waterGlasses || 0), 0)
       },
       days: [...days.values()].sort((a, b) => b.date.localeCompare(a.date))
     });

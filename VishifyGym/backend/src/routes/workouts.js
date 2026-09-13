@@ -20,12 +20,12 @@ router.get('/plan/:type', async (req, res, next) => {
     const type = req.params.type;
     const sessionType = ['push', 'pull', 'pushups'].includes(type) ? type : 'push';
     const [session, allSessions] = await Promise.all([
-      WorkoutSession.findOne({ userId, date, type: sessionType }),
-      WorkoutSession.find({ userId }).sort({ date: -1, createdAt: -1 })
+      WorkoutSession.findOne({ userId, date, type: sessionType }).select('date exerciseLogs').lean(),
+      WorkoutSession.find({ userId }).select('date exerciseLogs.exerciseName exerciseLogs.sets').sort({ date: -1, createdAt: -1 }).lean()
     ]);
     const exerciseList = sessionType === 'pushups'
-      ? await Exercise.find({ userId, name: 'Pushups', active: true }).sort({ order: 1 })
-      : await Exercise.find({ userId, category: sessionType, name: { $ne: 'Pushups' }, active: true }).sort({ order: 1 });
+      ? await Exercise.find({ userId, name: 'Pushups', active: true }).sort({ order: 1 }).lean()
+      : await Exercise.find({ userId, category: sessionType, name: { $ne: 'Pushups' }, active: true }).sort({ order: 1 }).lean();
     const loggedByName = Object.fromEntries((session?.exerciseLogs || []).map((e) => [e.exerciseName, e]));
     const exercises = exerciseList.map((ex) => {
       const name = ex.name;
@@ -48,7 +48,7 @@ router.get('/plan/:type', async (req, res, next) => {
 
 router.get('/last/:type', async (req, res, next) => {
   try {
-    const session = await WorkoutSession.findOne({ userId: req.userId, type: req.params.type }).sort({ date: -1, createdAt: -1 });
+    const session = await WorkoutSession.findOne({ userId: req.userId, type: req.params.type }).select('date exerciseLogs.exerciseName exerciseLogs.sets').sort({ date: -1, createdAt: -1 }).lean();
     if (!session) return res.json({ session: null, suggested: {} });
     const suggested = {};
     session.exerciseLogs.forEach((entry) => {
@@ -62,7 +62,7 @@ router.get('/last/:type', async (req, res, next) => {
 router.get('/today/:type', async (req, res, next) => {
   try {
     const date = req.query.date || isoDay();
-    const session = await WorkoutSession.findOne({ userId: req.userId, date, type: req.params.type });
+    const session = await WorkoutSession.findOne({ userId: req.userId, date, type: req.params.type }).select('date exerciseLogs').lean();
     res.json({ date, session });
   } catch (error) { next(error); }
 });
@@ -70,7 +70,7 @@ router.get('/today/:type', async (req, res, next) => {
 router.get('/exercise/:name', async (req, res, next) => {
   try {
     const name = req.params.name;
-    const session = await WorkoutSession.findOne({ userId: req.userId, 'exerciseLogs.exerciseName': name }).sort({ date: -1, createdAt: -1 });
+    const session = await WorkoutSession.findOne({ userId: req.userId, 'exerciseLogs.exerciseName': name }).select('date exerciseLogs.exerciseName exerciseLogs.sets').sort({ date: -1, createdAt: -1 }).lean();
     const entry = session?.exerciseLogs?.find((e) => e.exerciseName === name) || null;
     const suggested = entry ? suggestProgression(entry) : null;
     res.json({ last: entry && session ? { date: session.date, exerciseName: entry.exerciseName, sets: entry.sets } : null, suggested });
@@ -83,7 +83,7 @@ router.get('/', async (req, res, next) => {
     if (req.query.from || req.query.to) query.date = { ...(req.query.from && { $gte: req.query.from }), ...(req.query.to && { $lte: req.query.to }) };
     if (req.query.type) query.type = req.query.type;
     if (req.query.exercise) query['exerciseLogs.exerciseName'] = req.query.exercise;
-    let sessions = await WorkoutSession.find(query).sort({ date: -1, createdAt: -1 });
+    let sessions = await WorkoutSession.find(query).sort({ date: -1, createdAt: -1 }).lean();
     if (req.query.limit) sessions = sessions.slice(0, Number(req.query.limit));
     res.json(sessions);
   } catch (error) { next(error); }

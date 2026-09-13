@@ -12,6 +12,7 @@ import { SessionLauncher } from '../components/SessionLauncher';
 import { QuickPlanStatus } from '../components/QuickPlanStatus';
 import { MissionCard } from '../components/MissionCard';
 import { AdaptiveSuggestion } from '../components/AdaptiveSuggestion';
+import { WaterCard } from '../components/WaterCard';
 
 export function Overview() {
   const { dashboard, offline, syncing, pending } = useGym();
@@ -60,6 +61,7 @@ export function Overview() {
       <div className="content-grid">
         <div className="stack">
           <ConsistencyCalendar weekly={weekly} streak={proteinStreak} target={today.proteinTarget || 50} />
+          <WaterCard />
         </div>
         <div className="stack">
           <GroceryForecast forecast={forecast} />
